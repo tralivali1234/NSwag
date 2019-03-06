@@ -168,7 +168,7 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Tests
 
                     Assert.Single(operation.Operation.Responses);
                     var response = operation.Operation.Responses["200"];
-                    var definition = document.Definitions.First(f => f.Value == response.ActualResponseSchema);
+                    var definition = document.Definitions.First(f => f.Value == response.GetActualResponseSchema(operation.Operation));
                     Assert.Equal(nameof(TestModel), definition.Key);
                 },
                 operation =>
@@ -204,7 +204,7 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Tests
 
             Assert.Single(operation.Responses);
             var response = operation.Responses["200"];
-            var definition = document.Definitions.First(f => f.Value == response.ActualResponseSchema);
+            var definition = document.Definitions.First(f => f.Value == response.GetActualResponseSchema(operation));
             Assert.Equal(nameof(TestModel), definition.Key);
         }
 
@@ -234,11 +234,11 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Tests
 
             Assert.Equal(2, operation.Responses.Count);
             var response = operation.Responses["200"];
-            var definition = document.Definitions.First(f => f.Value == response.ActualResponseSchema);
+            var definition = document.Definitions.First(f => f.Value == response.GetActualResponseSchema(operation));
             Assert.Equal(nameof(TestModel), definition.Key);
 
             response = operation.Responses["default"];
-            definition = document.Definitions.First(f => f.Value == response.ActualResponseSchema);
+            definition = document.Definitions.First(f => f.Value == response.GetActualResponseSchema(operation));
             Assert.Equal(nameof(ProblemDetails), definition.Key);
         }
 
@@ -384,7 +384,7 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Tests
             var operation = Assert.Single(document.Operations);
             Assert.Single(operation.Operation.Responses);
             var response = operation.Operation.Responses["202"];
-            var definition = document.Definitions.First(f => f.Value == response.ActualResponseSchema);
+            var definition = document.Definitions.First(f => f.Value == response.GetActualResponseSchema(operation.Operation));
             Assert.Equal(nameof(TestModel), definition.Key);
         }
 
@@ -402,7 +402,7 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Tests
             var operation = Assert.Single(document.Operations);
             Assert.Single(operation.Operation.Responses);
             var response = operation.Operation.Responses["201"];
-            var definition = document.Definitions.First(f => f.Value == response.ActualResponseSchema);
+            var definition = document.Definitions.First(f => f.Value == response.GetActualResponseSchema(operation.Operation));
             Assert.Equal(nameof(TestModel), definition.Key);
         }
 
@@ -420,7 +420,7 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Tests
             var operation = Assert.Single(document.Operations, o => o.Path == "/" + nameof(ControllerWithParameters.FromHeaderParameter)).Operation;
             var parameter = Assert.Single(operation.Parameters);
             Assert.Equal(SwaggerParameterKind.Header, parameter.Kind);
-            Assert.Equal("parameter1", parameter.Name);
+            Assert.Equal("headerParameter", parameter.Name);
         }
 
         [Fact]
@@ -445,7 +445,7 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Tests
         public async Task FromFormParametersAreDiscovered()
         {
             //// Arrange
-            var generator = new AspNetCoreToSwaggerGenerator(new AspNetCoreToSwaggerGeneratorSettings());
+            var generator = new AspNetCoreToSwaggerGenerator(new AspNetCoreToSwaggerGeneratorSettings { RequireParametersWithoutDefault = true });
             var apiDescriptions = GetApiDescriptionGroups(typeof(ControllerWithParameters));
 
             //// Act
@@ -455,8 +455,33 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Tests
             var operation = Assert.Single(document.Operations, o => o.Path == "/" + nameof(ControllerWithParameters.FromFormParameter)).Operation;
             var parameter = Assert.Single(operation.Parameters);
             Assert.Equal(SwaggerParameterKind.FormData, parameter.Kind);
-            Assert.Equal("parameter1", parameter.Name);
+            Assert.Equal("formParameter", parameter.Name);
             Assert.True(parameter.IsRequired);
+        }
+
+        [Fact]
+        public async Task QueryParametersAreDiscovered()
+        {
+            //// Arrange
+            var generator = new AspNetCoreToSwaggerGenerator(new AspNetCoreToSwaggerGeneratorSettings { RequireParametersWithoutDefault = true });
+            var apiDescriptions = GetApiDescriptionGroups(typeof(ControllerWithParameters));
+
+            //// Act
+            var document = await generator.GenerateAsync(apiDescriptions);
+
+            //// Assert
+            var operation = Assert.Single(document.Operations, o => o.Path == "/" + nameof(ControllerWithParameters.QueryParameter)).Operation;
+            var requiredParameter = operation.Parameters.First();
+            var optionalParameter = operation.Parameters.Last();
+
+            Assert.Equal(SwaggerParameterKind.Query, requiredParameter.Kind);
+            Assert.Equal(SwaggerParameterKind.Query, optionalParameter.Kind);
+
+            Assert.Equal("queryParameter1", requiredParameter.Name);
+            Assert.Equal("queryParameter2", optionalParameter.Name);
+
+            Assert.True(requiredParameter.IsRequired);
+            Assert.False(optionalParameter.IsRequired);
         }
 
         [Fact]
@@ -667,19 +692,22 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Tests
         private class ControllerWithParameters
         {
             [HttpPost(nameof(FromHeaderParameter))]
-            public IActionResult FromHeaderParameter([FromHeader] string parameter1) => null;
+            public IActionResult FromHeaderParameter([FromHeader] string headerParameter) => null;
 
             [HttpPost(nameof(FromBodyParameter))]
             public IActionResult FromBodyParameter([FromBody] TestModel model) => null;
 
             [HttpPost(nameof(FromFormParameter))]
-            public IActionResult FromFormParameter([FromForm] string parameter1) => null;
+            public IActionResult FromFormParameter([FromForm] string formParameter) => null;
 
             [HttpPost(nameof(FileParameter))]
             public IActionResult FileParameter(IFormFileCollection formFiles) => null;
 
             [HttpPost(nameof(ComplexFromQueryParameter))]
             public IActionResult ComplexFromQueryParameter(ComplexModel model) => null;
+
+            [HttpPost(nameof(QueryParameter))]
+            public IActionResult QueryParameter(string queryParameter1, string queryParameter2 = null) => null;
         }
 
         private class ControllerWithBoundProperties
@@ -782,18 +810,22 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Tests
 
             var actionDescriptorProvider = new ControllerActionDescriptorProvider(
                 applicationPartManager,
-                new IApplicationModelProvider[] { new DefaultApplicationModelProvider(options), new MakeApiExplorerVisibleProvider(), },
+                new IApplicationModelProvider[]
+                {
+                    new DefaultApplicationModelProvider(options, new EmptyModelMetadataProvider()),
+                    new MakeApiExplorerVisibleProvider(),
+                },
                 options);
 
             var actionDescriptorProviderContext = new ActionDescriptorProviderContext();
             actionDescriptorProvider.OnProvidersExecuting(actionDescriptorProviderContext);
 
-            var apiDescriptionProvider = new DefaultApiDescriptionProvider(
-                options,
-                Mock.Of<IInlineConstraintResolver>(),
-                new EmptyModelMetadataProvider());
+            var apiDescriptionProvider = new DefaultApiDescriptionProvider(options, Mock.Of<IInlineConstraintResolver>(),
+                new EmptyModelMetadataProvider(), new ActionResultTypeMapper());
+
             var apiDescriptionProviderContext = new ApiDescriptionProviderContext(actionDescriptorProviderContext.Results.ToArray());
             apiDescriptionProvider.OnProvidersExecuting(apiDescriptionProviderContext);
+
             var groups = apiDescriptionProviderContext.Results.GroupBy(a => a.GroupName)
                 .Select(g => new ApiDescriptionGroup(g.Key, g.ToArray()))
                 .ToArray();

@@ -6,16 +6,26 @@
 // <author>Rico Suter, mail@rsuter.com</author>
 //-----------------------------------------------------------------------
 
+using NSwag.SwaggerGeneration;
 #if AspNetOwin
+using Microsoft.Owin;
+
 namespace NSwag.AspNet.Owin
 #else
+using Microsoft.AspNetCore.Http;
+
 namespace NSwag.AspNetCore
 #endif
 {
     /// <summary>The settings for UseReDoc.</summary>
-    public class SwaggerReDocSettings : SwaggerUiSettingsBase
+    public class SwaggerReDocSettings<T> : SwaggerUiSettingsBase<T>
+        where T : SwaggerGeneratorSettings, new()
     {
-        internal override string TransformHtml(string html)
+#if AspNetOwin
+        internal override string TransformHtml(string html, IOwinRequest request)
+#else
+        internal override string TransformHtml(string html, HttpRequest request)
+#endif
         {
             return html;
         }

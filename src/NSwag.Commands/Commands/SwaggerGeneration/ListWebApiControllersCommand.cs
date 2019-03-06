@@ -14,20 +14,24 @@ using NJsonSchema.Infrastructure;
 using NSwag.AssemblyLoader.Utilities;
 using NSwag.SwaggerGeneration.WebApi;
 using System.IO;
+using NSwag.Commands.SwaggerGeneration.WebApi;
 
 namespace NSwag.Commands.SwaggerGeneration
 {
     [Command(Name = "list-controllers", Description = "List all controllers classes for the given assembly and settings.")]
     public class ListWebApiControllersCommand : IsolatedCommandBase<string[]>
     {
-        [Argument(Name = "File", IsRequired = false, Description = "The nswag.json configuration file path.")]
+        [Argument(Name = nameof(File), IsRequired = false, Description = "The nswag.json configuration file path.")]
         public string File { get; set; }
+
+        [Argument(Name = nameof(Variables), IsRequired = false)]
+        public string Variables { get; set; }
 
         public override async Task<object> RunAsync(CommandLineProcessor processor, IConsoleHost host)
         {
             if (!string.IsNullOrEmpty(File))
             {
-                var document = await NSwagDocument.LoadAsync(File);
+                var document = await NSwagDocument.LoadWithTransformationsAsync(File, Variables);
                 var command = (WebApiToSwaggerCommand)document.SelectedSwaggerGenerator;
 
                 AssemblyPaths = command.AssemblyPaths;

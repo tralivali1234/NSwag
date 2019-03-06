@@ -37,14 +37,11 @@ namespace NSwag.CodeGeneration.TypeScript
         /// <param name="resolver">The resolver.</param>
         /// <exception cref="ArgumentNullException"><paramref name="document" /> is <see langword="null" />.</exception>
         public SwaggerToTypeScriptClientGenerator(SwaggerDocument document, SwaggerToTypeScriptClientGeneratorSettings settings, TypeScriptTypeResolver resolver)
-            : base(resolver, settings.CodeGeneratorSettings)
+            : base(document, settings.CodeGeneratorSettings, resolver)
         {
-            if (document == null)
-                throw new ArgumentNullException(nameof(document));
-
             Settings = settings;
 
-            _document = document;
+            _document = document ?? throw new ArgumentNullException(nameof(document));
             _resolver = resolver;
             _resolver.RegisterSchemaDefinitions(_document.Definitions);
             _extensionCode = new TypeScriptExtensionCode(
@@ -136,7 +133,7 @@ namespace NSwag.CodeGeneration.TypeScript
                     {
                         Variable = "result" + response.StatusCode,
                         Value = "resultData" + response.StatusCode,
-                        Schema = response.ActualResponseSchema,
+                        Schema = response.ResolvableResponseSchema,
                         IsPropertyNullable = response.IsNullable,
                         TypeNameHint = string.Empty,
                         Settings = Settings.TypeScriptGeneratorSettings,
@@ -149,9 +146,9 @@ namespace NSwag.CodeGeneration.TypeScript
                 {
                     operation.DefaultResponse.DataConversionCode = DataConversionGenerator.RenderConvertToClassCode(new DataConversionParameters
                     {
-                        Variable = "result",
-                        Value = "resultData",
-                        Schema = operation.DefaultResponse.ActualResponseSchema,
+                        Variable = "result" + operation.DefaultResponse.StatusCode,
+                        Value = "resultData" + operation.DefaultResponse.StatusCode,
+                        Schema = operation.DefaultResponse.ResolvableResponseSchema,
                         IsPropertyNullable = operation.DefaultResponse.IsNullable,
                         TypeNameHint = string.Empty,
                         Settings = Settings.TypeScriptGeneratorSettings,

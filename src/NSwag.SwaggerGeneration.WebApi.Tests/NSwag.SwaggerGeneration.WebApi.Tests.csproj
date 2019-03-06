@@ -12,6 +12,8 @@
     <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -33,6 +35,9 @@
     <DocumentationFile>bin\Release\NSwag.SwaggerGeneration.WebApi.Tests.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="DotLiquid, Version=2.0.254.0, Culture=neutral, PublicKeyToken=82e46016ecf9f07c, processorArchitecture=MSIL">
+      <HintPath>..\packages\DotLiquid.2.0.254\lib\net45\DotLiquid.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.AspNet.WebApi.Versioning, Version=2.1.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.AspNet.WebApi.Versioning.2.1.0\lib\net45\Microsoft.AspNet.WebApi.Versioning.dll</HintPath>
     </Reference>
@@ -45,8 +50,14 @@
       <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="NJsonSchema, Version=9.10.6.0, Culture=neutral, PublicKeyToken=c2f9c3bdfae56102, processorArchitecture=MSIL">
-      <HintPath>..\packages\NJsonSchema.9.10.6\lib\net45\NJsonSchema.dll</HintPath>
+    <Reference Include="NJsonSchema, Version=9.13.22.0, Culture=neutral, PublicKeyToken=c2f9c3bdfae56102, processorArchitecture=MSIL">
+      <HintPath>..\packages\NJsonSchema.9.13.22\lib\net45\NJsonSchema.dll</HintPath>
+    </Reference>
+    <Reference Include="NJsonSchema.CodeGeneration, Version=9.13.22.0, Culture=neutral, PublicKeyToken=c2f9c3bdfae56102, processorArchitecture=MSIL">
+      <HintPath>..\packages\NJsonSchema.CodeGeneration.9.13.22\lib\net451\NJsonSchema.CodeGeneration.dll</HintPath>
+    </Reference>
+    <Reference Include="NJsonSchema.CodeGeneration.TypeScript, Version=9.13.22.0, Culture=neutral, PublicKeyToken=c2f9c3bdfae56102, processorArchitecture=MSIL">
+      <HintPath>..\packages\NJsonSchema.CodeGeneration.TypeScript.9.13.22\lib\net451\NJsonSchema.CodeGeneration.TypeScript.dll</HintPath>
     </Reference>
     <Reference Include="Swashbuckle.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=cd1bb07a5ac7c7bc, processorArchitecture=MSIL">
       <HintPath>..\packages\Swashbuckle.Core.5.5.3\lib\net40\Swashbuckle.Core.dll</HintPath>
@@ -112,6 +123,7 @@
     <Compile Include="Attributes\AcceptVerbsTests.cs" />
     <Compile Include="Attributes\ApiExplorerSettingsAttributeTests.cs" />
     <Compile Include="Attributes\ComplexParametersTests.cs" />
+    <Compile Include="Attributes\ExtensionDataTests.cs" />
     <Compile Include="Attributes\PrimitivePathParametersTests.cs" />
     <Compile Include="Attributes\PrimitiveQueryParametersTests.cs" />
     <Compile Include="Attributes\ResponseAttributeTests.cs" />
@@ -123,7 +135,7 @@
     <Compile Include="ControllerClassesTests.cs" />
     <Compile Include="OperationNameGenerator\MultipleClientsFromOperationIdOperationNameGeneratorTests.cs" />
     <Compile Include="OperationNameGenerator\MultipleClientsFromPathSegmentsOperationNameGeneratorTests.cs" />
-    <Compile Include="OperationProcessors\ApiVersionProcessorTests.cs" />
+    <Compile Include="OperationProcessors\ApiVersionProcessorWithWebApiTests.cs" />
     <Compile Include="Nullability\ParameterNullabilityTests.cs" />
     <Compile Include="Nullability\ResponseNullabilityTests.cs" />
     <Compile Include="OperationProcessors\SwaggerOperationProcessorAttributeTests.cs" />
@@ -195,6 +207,13 @@
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="..\packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets" Condition="Exists('..\packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Bcl.Build.1.0.21\build\Microsoft.Bcl.Build.targets'))" />
+  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

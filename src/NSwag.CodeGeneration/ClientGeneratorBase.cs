@@ -25,12 +25,13 @@ namespace NSwag.CodeGeneration
         where TParameterModel : ParameterModelBase
     {
         /// <summary>Initializes a new instance of the <see cref="ClientGeneratorBase{TOperationModel, TParameterModel, TResponseModel}"/> class.</summary>
-        /// <param name="resolver">The type resolver.</param>
+        /// <param name="document">The document.</param>
         /// <param name="codeGeneratorSettings">The code generator settings.</param>
-        protected ClientGeneratorBase(TypeResolverBase resolver, CodeGeneratorSettingsBase codeGeneratorSettings)
+        /// <param name="resolver">The type resolver.</param>
+        protected ClientGeneratorBase(SwaggerDocument document, CodeGeneratorSettingsBase codeGeneratorSettings, TypeResolverBase resolver)
         {
             Resolver = resolver;
-            codeGeneratorSettings.SchemaType = SchemaType.Swagger2; // enforce Swagger schema output 
+            codeGeneratorSettings.SchemaType = document.SchemaType; // enforce Swagger schema output 
         }
 
         /// <summary>Generates the the whole file containing all needed types.</summary>
@@ -110,7 +111,7 @@ namespace NSwag.CodeGeneration
             document.GenerateOperationIds();
 
             return document.Paths
-                .SelectMany(pair => pair.Value.Select(p => new { Path = pair.Key.Trim('/'), HttpMethod = p.Key, Operation = p.Value }))
+                .SelectMany(pair => pair.Value.Select(p => new { Path = pair.Key.TrimStart('/'), HttpMethod = p.Key, Operation = p.Value }))
                 .Select(tuple =>
                 {
                     var operationModel = CreateOperationModel(tuple.Operation, BaseSettings);

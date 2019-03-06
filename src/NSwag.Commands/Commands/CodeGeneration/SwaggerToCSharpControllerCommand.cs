@@ -16,7 +16,7 @@ using NSwag.CodeGeneration.CSharp.Models;
 namespace NSwag.Commands.CodeGeneration
 {
     [Command(Name = "swagger2cscontroller", Description = "Generates CSharp Web API controller code from a Swagger specification.")]
-    public class SwaggerToCSharpControllerCommand : SwaggerToCSharpCommand<SwaggerToCSharpControllerGeneratorSettings>
+    public class SwaggerToCSharpControllerCommand : SwaggerToCSharpCommandBase<SwaggerToCSharpControllerGeneratorSettings>
     {
         public SwaggerToCSharpControllerCommand() : base(new SwaggerToCSharpControllerGeneratorSettings())
         {
@@ -48,6 +48,13 @@ namespace NSwag.Commands.CodeGeneration
         {
             get { return Settings.AspNetNamespace; }
             set { Settings.AspNetNamespace = value; }
+        }
+
+        [Argument(Name = "RouteNamingStrategy", Description = "The strategy for naming controller routes (none, operationid; default: none).", IsRequired = false)]
+        public CSharpControllerRouteNamingStrategy RouteNamingStrategy
+        {
+            get { return Settings.RouteNamingStrategy; }
+            set { Settings.RouteNamingStrategy = value; }
         }
 
         public override async Task<object> RunAsync(CommandLineProcessor processor, IConsoleHost host)

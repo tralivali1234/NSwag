@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 using NJsonSchema;
 using NJsonSchema.CodeGeneration;
 using NJsonSchema.CodeGeneration.TypeScript;
+using System.Reflection;
 
 namespace NSwag.CodeGeneration.TypeScript
 {
@@ -30,12 +31,20 @@ namespace NSwag.CodeGeneration.TypeScript
             {
                 SchemaType = SchemaType.Swagger2,
                 MarkOptionalProperties = true,
-                TypeNameGenerator = new TypeScriptTypeNameGenerator()
+                TypeNameGenerator = new TypeScriptTypeNameGenerator(),
+                TypeScriptVersion = 2.7m
             };
-            TypeScriptGeneratorSettings.TemplateFactory = new DefaultTemplateFactory(TypeScriptGeneratorSettings);
+
+            TypeScriptGeneratorSettings.TemplateFactory = new DefaultTemplateFactory(TypeScriptGeneratorSettings, new Assembly[]
+            {
+                typeof(TypeScriptGeneratorSettings).GetTypeInfo().Assembly,
+                typeof(SwaggerToTypeScriptClientGeneratorSettings).GetTypeInfo().Assembly,
+            });
+
+            ProtectedMethods = new string[0];
         }
 
-        /// <summary>Gets or sets the TypeScript generator settings.</summary>
+        /// <summary>Gets the TypeScript generator settings.</summary>
         public TypeScriptGeneratorSettings TypeScriptGeneratorSettings { get; }
 
         /// <summary>Gets the code generator settings.</summary>
@@ -44,12 +53,6 @@ namespace NSwag.CodeGeneration.TypeScript
 
         /// <summary>Gets or sets the output template.</summary>
         public TypeScriptTemplate Template { get; set; }
-
-        /// <summary>Gets or sets the HTTP service class (applies only for the Angular template).</summary>
-        public HttpClass HttpClass { get; set; } = HttpClass.Http;
-
-        /// <summary>Gets or sets the injection token type (applies only for the Angular template).</summary>
-        public InjectionTokenType InjectionTokenType { get; set; } = InjectionTokenType.OpaqueToken;
 
         /// <summary>Gets or sets the promise type.</summary>
         public PromiseType PromiseType { get; set; }
@@ -83,6 +86,20 @@ namespace NSwag.CodeGeneration.TypeScript
 
         /// <summary>Gets or sets the null value used for query parameters which are null (default: '').</summary>
         public string QueryNullValue { get; set; }
+
+        // TODO: Angular specific => move
+
+        /// <summary>Gets or sets the HTTP service class (applies only for the Angular template, default: HttpClient).</summary>
+        public HttpClass HttpClass { get; set; } = HttpClass.HttpClient;
+
+        /// <summary>Gets the RxJs version (Angular template only, default: 6.0).</summary>
+        public decimal RxJsVersion { get; set; } = 6.0m;
+
+        /// <summary>Gets a value indicating whether to use the Angular 6 Singleton Provider (Angular template only, default: false).</summary>
+        public bool UseSingletonProvider { get; set; } = false;
+
+        /// <summary>Gets or sets the injection token type (applies only for the Angular template).</summary>
+        public InjectionTokenType InjectionTokenType { get; set; } = InjectionTokenType.OpaqueToken;
 
         internal ITemplate CreateTemplate(object model)
         {

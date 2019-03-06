@@ -16,6 +16,8 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using NSwag.AssemblyLoader.Utilities;
 using NSwag.Commands.SwaggerGeneration;
+using NSwag.Commands.SwaggerGeneration.AspNetCore;
+using NSwag.Commands.SwaggerGeneration.WebApi;
 
 namespace NSwag.Commands
 {
@@ -23,7 +25,7 @@ namespace NSwag.Commands
     /// <seealso cref="NSwagDocumentBase" />
     public class NSwagDocument : NSwagDocumentBase
     {
-#if NET451
+#if NET461
 
         /// <summary>Gets or sets the root binary directory where the command line executables loaded from.</summary>
         public static string RootBinaryDirectory { get; set; } =
@@ -33,6 +35,7 @@ namespace NSwag.Commands
         /// <summary>Initializes a new instance of the <see cref="NSwagDocument"/> class.</summary>
         public NSwagDocument()
         {
+            SwaggerGenerators.AspNetCoreToSwaggerCommand = new AspNetCoreToSwaggerCommand();
             SwaggerGenerators.WebApiToSwaggerCommand = new WebApiToSwaggerCommand();
             SwaggerGenerators.TypesToSwaggerCommand = new TypesToSwaggerCommand();
         }
@@ -47,10 +50,25 @@ namespace NSwag.Commands
         /// <summary>Loads an existing NSwagDocument.</summary>
         /// <param name="filePath">The file path.</param>
         /// <returns>The document.</returns>
-        public static Task<NSwagDocument> LoadAsync(string filePath)
+        public static async Task<NSwagDocument> LoadAsync(string filePath)
         {
-            return LoadAsync<NSwagDocument>(filePath, new Dictionary<Type, Type>
+            return await LoadAsync<NSwagDocument>(filePath, null, false, new Dictionary<Type, Type>
             {
+                { typeof(AspNetCoreToSwaggerCommand), typeof(AspNetCoreToSwaggerCommand) },
+                { typeof(WebApiToSwaggerCommand), typeof(WebApiToSwaggerCommand) },
+                { typeof(TypesToSwaggerCommand), typeof(TypesToSwaggerCommand) }
+            });
+        }
+
+        /// <summary>Loads an existing NSwagDocument with environment variable expansions and variables.</summary>
+        /// <param name="filePath">The file path.</param>
+        /// <param name="variables">The variables.</param>
+        /// <returns>The document.</returns>
+        public static async Task<NSwagDocument> LoadWithTransformationsAsync(string filePath, string variables)
+        {
+            return await LoadAsync<NSwagDocument>(filePath, variables, true, new Dictionary<Type, Type>
+            {
+                { typeof(AspNetCoreToSwaggerCommand), typeof(AspNetCoreToSwaggerCommand) },
                 { typeof(WebApiToSwaggerCommand), typeof(WebApiToSwaggerCommand) },
                 { typeof(TypesToSwaggerCommand), typeof(TypesToSwaggerCommand) }
             });
@@ -170,7 +188,7 @@ namespace NSwag.Commands
         /// <returns>The absolute path.</returns>
         protected override string ConvertToAbsolutePath(string pathToConvert)
         {
-            if (!string.IsNullOrEmpty(pathToConvert) && !System.IO.Path.IsPathRooted(pathToConvert))
+            if (!string.IsNullOrEmpty(pathToConvert) && !System.IO.Path.IsPathRooted(pathToConvert) && !pathToConvert.Contains("%"))
                 return PathUtilities.MakeAbsolutePath(pathToConvert, GetDocumentDirectory());
             return pathToConvert;
         }
@@ -180,7 +198,7 @@ namespace NSwag.Commands
         /// <returns>The relative path.</returns>
         protected override string ConvertToRelativePath(string pathToConvert)
         {
-            if (!string.IsNullOrEmpty(pathToConvert) && !pathToConvert.Contains("C:\\Program Files\\"))
+            if (!string.IsNullOrEmpty(pathToConvert) && !pathToConvert.Contains("C:\\Program Files\\") && !pathToConvert.Contains("%"))
                 return PathUtilities.MakeRelativePath(pathToConvert, GetDocumentDirectory())?.Replace("\\", "/");
             return pathToConvert?.Replace("\\", "/");
         }
@@ -220,7 +238,7 @@ namespace NSwag.Commands
             processStart.CreateNoWindow = true;
 
             var process = Process.Start(processStart);
-            var output = await process.StandardOutput.ReadToEndAsync() + 
+            var output = await process.StandardOutput.ReadToEndAsync() +
                 "\n\n" + await process.StandardError.ReadToEndAsync();
 
             if (process.ExitCode != 0)
@@ -257,7 +275,7 @@ namespace NSwag.Commands
 
         private string GetArgumentsPrefix()
         {
-#if NET451
+#if NET461
 
 	        var runtime = Runtime != Runtime.Default ? Runtime : RuntimeUtilities.CurrentRuntime;
             if (runtime == Runtime.NetCore10)
@@ -266,14 +284,18 @@ namespace NSwag.Commands
                 return "\"" + System.IO.Path.Combine(RootBinaryDirectory, "NetCore11/dotnet-nswag.dll") + "\" ";
             else if (runtime == Runtime.NetCore20)
                 return "\"" + System.IO.Path.Combine(RootBinaryDirectory, "NetCore20/dotnet-nswag.dll") + "\" ";
+            else if (runtime == Runtime.NetCore21)
+                return "\"" + System.IO.Path.Combine(RootBinaryDirectory, "NetCore21/dotnet-nswag.dll") + "\" ";
+            else if (runtime == Runtime.NetCore22)
+                return "\"" + System.IO.Path.Combine(RootBinaryDirectory, "NetCore22/dotnet-nswag.dll") + "\" ";
             else
 #endif
-                return "";
+            return "";
         }
 
         private string GetProgramName()
         {
-#if NET451
+#if NET461
 
 	        var runtime = Runtime != Runtime.Default ? Runtime : RuntimeUtilities.CurrentRuntime;
             if (runtime == Runtime.WinX64 || runtime == Runtime.Debug)
@@ -282,7 +304,7 @@ namespace NSwag.Commands
                 return System.IO.Path.Combine(RootBinaryDirectory, "Win/nswag.x86.exe");
             else
 #endif
-                return "dotnet";
+            return "dotnet";
         }
 
         private string ReadFileIfExists(string filename)

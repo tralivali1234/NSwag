@@ -12,7 +12,6 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using NJsonSchema.Infrastructure;
-using NSwag.SwaggerGeneration.Processors;
 using NSwag.SwaggerGeneration.Processors.Contexts;
 
 namespace NSwag.SwaggerGeneration.Processors
@@ -20,42 +19,90 @@ namespace NSwag.SwaggerGeneration.Processors
     /// <summary>An operation processor which replaces {version:apiVersion} route placeholders and filters the included versions.</summary>
     public class ApiVersionProcessor : IOperationProcessor
     {
-        /// <summary>Gets the list of versions which should be included in the generated document (leave empty to include all versions).</summary>
-        public IList<string> IncludedVersions { get; } = new List<string>();
+        /// <summary>Gets or sets the list of versions which should be included in the generated document (leave empty to include all versions).</summary>
+        public string[] IncludedVersions { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether to ignore the global API version parameter (ASP.NET Core only, default: true).</summary>
+        public bool IgnoreParameter { get; set; } = true;
 
         /// <summary>Processes the specified method information.</summary>
         /// <param name="context">The processor context.</param>
         /// <returns>true if the operation should be added to the Swagger specification.</returns>
         public Task<bool> ProcessAsync(OperationProcessorContext context)
         {
-            var versionAttributes = context.MethodInfo.GetCustomAttributes()
-                .Concat(context.MethodInfo.DeclaringType.GetTypeInfo().GetCustomAttributes())
-                .Where(a => a.GetType().IsAssignableTo("MapToApiVersionAttribute", TypeNameStyle.Name) ||
-                            a.GetType().IsAssignableTo("ApiVersionAttribute", TypeNameStyle.Name))
-                .Select(a => (dynamic)a)
-                .ToArray();
-
-            var versionAttribute = versionAttributes.FirstOrDefault();
-            if (ReflectionExtensions.HasProperty(versionAttribute, "Versions"))
+            if (UseVersionedApiExplorer(context))
             {
-                var versions = ((IEnumerable)versionAttribute.Versions)
-                    .OfType<object>()
-                    .Select(v => v.ToString())
-                    .ToArray();
+                var dynamicContext = (dynamic)context;
+                var version = (string)dynamicContext.ApiDescription.GroupName;
 
-                var version = versions.FirstOrDefault(v => IncludedVersions.Count == 0 || IncludedVersions.Contains(v));
-                if (version != null)
+                var isIncluded = IncludedVersions == null || IncludedVersions.Contains(version);
+                if (isIncluded)
                 {
-                    var operationDescription = context.OperationDescription;
-                    operationDescription.Path = operationDescription.Path.Replace("{version:apiVersion}", version);
-
-                    return Task.FromResult(true);
+                    RemoveApiVersionPathParameter(context, version);
                 }
-                else
+
+                return Task.FromResult(isIncluded);
+            }
+            else
+            {
+                var versions = GetVersions(context, "ApiVersionAttribute");
+                if (versions.Any())
+                {
+                    if (versions.Any(v => IncludedVersions == null || IncludedVersions.Length == 0 || IncludedVersions.Contains(v)))
+                    {
+                        var mappedVersions = GetVersions(context, "MapToApiVersionAttribute");
+
+                        var version = mappedVersions.FirstOrDefault(v => IncludedVersions == null || IncludedVersions.Length == 0 || IncludedVersions.Contains(v));
+                        if (version == null && mappedVersions.Length == 0)
+                            version = IncludedVersions != null && IncludedVersions.Any() ? IncludedVersions[0] : versions[0];
+
+                        if (version != null)
+                        {
+                            RemoveApiVersionPathParameter(context, version);
+                            return Task.FromResult(true);
+                        }
+                        else
+                            return Task.FromResult(false);
+                    }
+
                     return Task.FromResult(false);
+                }
+
+                return Task.FromResult(true);
+            }
+        }
+
+        private bool UseVersionedApiExplorer(OperationProcessorContext context)
+        {
+            if (context.HasProperty("ApiDescription"))
+            {
+                var dynamicContext = (dynamic)context;
+                var usesVersionedApiExplorer = ((IDictionary<object, object>)dynamicContext.ApiDescription.Properties)
+                    .Any(tuple => ((dynamic)tuple.Key).FullName == "Microsoft.AspNetCore.Mvc.ApiVersion");
+
+                return usesVersionedApiExplorer;
             }
 
-            return Task.FromResult(true);
+            return false;
+        }
+
+        private void RemoveApiVersionPathParameter(OperationProcessorContext context, string version)
+        {
+            var operationDescription = context.OperationDescription;
+            operationDescription.Path = operationDescription.Path.Replace("{version:apiVersion}", version);
+            operationDescription.Path = operationDescription.Path.Replace("{version}", version);
+        }
+
+        private string[] GetVersions(OperationProcessorContext context, string attributeType)
+        {
+            var versionAttributes = context.MethodInfo.GetCustomAttributes()
+                .Concat(context.MethodInfo.DeclaringType.GetTypeInfo().GetCustomAttributes())
+                .Concat(context.ControllerType.GetTypeInfo().GetCustomAttributes(true))
+                .Where(a => a.GetType().IsAssignableTo(attributeType, TypeNameStyle.Name) && a.HasProperty("Versions"))
+                .SelectMany((dynamic a) => ((IEnumerable)a.Versions).OfType<object>().Select(v => v.ToString()))
+                .ToArray();
+
+            return versionAttributes;
         }
     }
 }

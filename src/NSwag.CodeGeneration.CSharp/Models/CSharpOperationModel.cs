@@ -9,6 +9,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using NJsonSchema;
+using NJsonSchema.CodeGeneration;
+using NJsonSchema.CodeGeneration.CSharp;
 using NSwag.CodeGeneration.Models;
 
 namespace NSwag.CodeGeneration.CSharp.Models
@@ -29,7 +31,7 @@ namespace NSwag.CodeGeneration.CSharp.Models
         private readonly SwaggerToCSharpGeneratorSettings _settings;
         private readonly SwaggerOperation _operation;
         private readonly SwaggerToCSharpGeneratorBase _generator;
-        private readonly SwaggerToCSharpTypeResolver _resolver;
+        private readonly CSharpTypeResolver _resolver;
 
         /// <summary>Initializes a new instance of the <see cref="CSharpOperationModel" /> class.</summary>
         /// <param name="operation">The operation.</param>
@@ -40,7 +42,7 @@ namespace NSwag.CodeGeneration.CSharp.Models
             SwaggerOperation operation,
             SwaggerToCSharpGeneratorSettings settings,
             SwaggerToCSharpGeneratorBase generator,
-            SwaggerToCSharpTypeResolver resolver)
+            CSharpTypeResolver resolver)
             : base(resolver.ExceptionSchema, operation, resolver, generator, settings)
         {
             _settings = settings;
@@ -49,14 +51,31 @@ namespace NSwag.CodeGeneration.CSharp.Models
             _resolver = resolver;
 
             var parameters = _operation.ActualParameters.ToList();
+
             if (settings.GenerateOptionalParameters)
-                parameters = parameters.OrderBy(p => !p.IsRequired).ToList();
+            {
+                if (generator is SwaggerToCSharpControllerGenerator)
+                {
+                    parameters = parameters
+                        .OrderBy(p => p.Position ?? 0)
+                        .OrderBy(p => !p.IsRequired)
+                        .ThenBy(p => p.Default == null).ToList();
+                }
+                else
+                {
+                    parameters = parameters
+                        .OrderBy(p => p.Position ?? 0)
+                        .OrderBy(p => !p.IsRequired)
+                        .ToList();
+                }
+            }
 
             Parameters = parameters.Select(parameter =>
                 new CSharpParameterModel(parameter.Name, GetParameterVariableName(parameter, _operation.Parameters),
                     ResolveParameterType(parameter), parameter, parameters,
                     _settings.CodeGeneratorSettings,
-                    _generator))
+                    _generator,
+                    _resolver))
                 .ToList();
         }
 
@@ -84,22 +103,30 @@ namespace NSwag.CodeGeneration.CSharp.Models
         /// <summary>Gets a value indicating whether the operation has a result type.</summary>
         public bool HasResult => UnwrappedResultType != "void";
 
+        /// <summary>Gets or sets the synchronous type of the result.</summary>
+        public string SyncResultType
+        {
+            get
+            {
+                if (_settings != null && WrapResponse && UnwrappedResultType != "FileResponse")
+                {
+                    return UnwrappedResultType == "void"
+                        ? _settings.ResponseClass.Replace("{controller}", ControllerName)
+                        : _settings.ResponseClass.Replace("{controller}", ControllerName) + "<" + UnwrappedResultType + ">";
+                }
+
+                return UnwrappedResultType;
+            }
+        }
+
         /// <summary>Gets or sets the type of the result.</summary>
         public override string ResultType
         {
             get
             {
-                if (UnwrappedResultType == "FileResponse")
-                    return "System.Threading.Tasks.Task<FileResponse>";
-
-                if (_settings != null && WrapResponse)
-                    return UnwrappedResultType == "void"
-                        ? "System.Threading.Tasks.Task<" + _settings.ResponseClass.Replace("{controller}", ControllerName) + ">"
-                        : "System.Threading.Tasks.Task<" + _settings.ResponseClass.Replace("{controller}", ControllerName) + "<" + UnwrappedResultType + ">>";
-
-                return UnwrappedResultType == "void"
+                return SyncResultType == "void"
                     ? "System.Threading.Tasks.Task"
-                    : "System.Threading.Tasks.Task<" + UnwrappedResultType + ">";
+                    : "System.Threading.Tasks.Task<" + SyncResultType + ">";
             }
         }
 
@@ -111,9 +138,9 @@ namespace NSwag.CodeGeneration.CSharp.Models
                 if (_operation.ActualResponses.Count(r => !HttpUtilities.IsSuccessStatusCode(r.Key)) != 1)
                     return "System.Exception";
 
-                var response = _operation.ActualResponses.Single(r => !HttpUtilities.IsSuccessStatusCode(r.Key)).Value;
-                var isNullable = response.IsNullable(_settings.CodeGeneratorSettings.SchemaType);
-                return _generator.GetTypeName(response.ActualResponseSchema, isNullable, "Exception");
+                var response = _operation.ActualResponses.Single(r => !HttpUtilities.IsSuccessStatusCode(r.Key));
+                var isNullable = response.Value.IsNullable(_settings.CodeGeneratorSettings.SchemaType);
+                return _generator.GetTypeName(response.Value.GetActualResponseSchema(_operation), isNullable, "Exception");
             }
         }
 
@@ -153,6 +180,24 @@ namespace NSwag.CodeGeneration.CSharp.Models
             }
         }
 
+        /// <summary>Gets a value indicating whether a route name is available.</summary>
+        public bool HasRouteName => RouteName != null;
+
+        /// <summary>Gets the route name for this operation.</summary>
+        public string RouteName
+        {
+            get
+            {
+                var settings = _settings as SwaggerToCSharpControllerGeneratorSettings;
+                if (settings != null)
+                {
+                    return settings.GetRouteName(_operation);
+                }
+
+                return null;
+            }
+        }
+
         /// <summary>Gets the name of the parameter variable.</summary>
         /// <param name="parameter">The parameter.</param>
         /// <param name="allParameters">All parameters.</param>
@@ -183,20 +228,22 @@ namespace NSwag.CodeGeneration.CSharp.Models
             }
 
             return base.ResolveParameterType(parameter)
-                .Replace(_settings.CSharpGeneratorSettings.ArrayType + "<", "System.Collections.Generic.IEnumerable<")
-                .Replace(_settings.CSharpGeneratorSettings.DictionaryType + "<", "System.Collections.Generic.IDictionary<");
+                .Replace(_settings.CSharpGeneratorSettings.ArrayType + "<", _settings.ParameterArrayType + "<")
+                .Replace(_settings.CSharpGeneratorSettings.DictionaryType + "<", _settings.ParameterDictionaryType + "<");
         }
 
         /// <summary>Creates the response model.</summary>
+        /// <param name="operation">The operation.</param>
         /// <param name="statusCode">The status code.</param>
         /// <param name="response">The response.</param>
         /// <param name="exceptionSchema">The exception schema.</param>
         /// <param name="generator">The generator.</param>
+        /// <param name="resolver">The resolver.</param>
         /// <param name="settings">The settings.</param>
         /// <returns></returns>
-        protected override CSharpResponseModel CreateResponseModel(string statusCode, SwaggerResponse response, JsonSchema4 exceptionSchema, IClientGenerator generator, ClientGeneratorBaseSettings settings)
+        protected override CSharpResponseModel CreateResponseModel(SwaggerOperation operation, string statusCode, SwaggerResponse response, JsonSchema4 exceptionSchema, IClientGenerator generator, TypeResolverBase resolver, ClientGeneratorBaseSettings settings)
         {
-            return new CSharpResponseModel(this, statusCode, response, response == GetSuccessResponse(), exceptionSchema, generator, settings.CodeGeneratorSettings);
+            return new CSharpResponseModel(this, operation, statusCode, response, response == GetSuccessResponse().Value, exceptionSchema, generator, resolver, settings.CodeGeneratorSettings);
         }
     }
 }

@@ -8,6 +8,7 @@
 
 using System.Collections.Generic;
 using NJsonSchema.CodeGeneration;
+using NJsonSchema.CodeGeneration.TypeScript;
 using NSwag.CodeGeneration.Models;
 
 namespace NSwag.CodeGeneration.TypeScript.Models
@@ -25,9 +26,17 @@ namespace NSwag.CodeGeneration.TypeScript.Models
         /// <param name="allParameters">All parameters.</param>
         /// <param name="settings">The settings.</param>
         /// <param name="generator">The client generator base.</param>
-        public TypeScriptParameterModel(string parameterName, string variableName, string typeName, SwaggerParameter parameter,
-            IList<SwaggerParameter> allParameters, SwaggerToTypeScriptClientGeneratorSettings settings, SwaggerToTypeScriptClientGenerator generator)
-            : base(parameterName, variableName, typeName, parameter, allParameters, settings.TypeScriptGeneratorSettings, generator)
+        /// <param name="typeResolver">The type resolver.</param>
+        public TypeScriptParameterModel(
+            string parameterName,
+            string variableName,
+            string typeName,
+            SwaggerParameter parameter,
+            IList<SwaggerParameter> allParameters,
+            SwaggerToTypeScriptClientGeneratorSettings settings,
+            SwaggerToTypeScriptClientGenerator generator,
+            TypeResolverBase typeResolver)
+            : base(parameterName, variableName, typeName, parameter, allParameters, settings.TypeScriptGeneratorSettings, generator, typeResolver)
         {
             _settings = settings;
         }
@@ -37,12 +46,15 @@ namespace NSwag.CodeGeneration.TypeScript.Models
         {
             get
             {
-                if (IsNullable && _settings.TypeScriptGeneratorSettings.SupportsStrictNullChecks)
-                    return " | null";
+                if (_settings.TypeScriptGeneratorSettings.SupportsStrictNullChecks)
+                {
+                    return (IsNullable == true ? " | null" : "") + (IsRequired == false ? " | undefined" : "");
+                }
                 else
+                {
                     return string.Empty;
+                }
             }
         }
-
     }
 }

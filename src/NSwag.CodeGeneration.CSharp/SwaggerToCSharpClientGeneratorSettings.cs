@@ -27,6 +27,9 @@ namespace NSwag.CodeGeneration.CSharp
             GenerateUpdateJsonSerializerSettingsMethod = true;
             QueryNullValue = "";
             GenerateBaseUrlProperty = true;
+            ExposeJsonSerializerSettings = false;
+            InjectHttpClient = true;
+            ProtectedMethods = new string[0];
         }
 
         /// <summary>Gets or sets the full name of the base class.</summary>
@@ -41,7 +44,7 @@ namespace NSwag.CodeGeneration.CSharp
         /// <summary>Gets or sets the name of the exception class (supports the '{controller}' placeholder, default 'SwaggerException').</summary>
         public string ExceptionClass { get; set; }
 
-        /// <summary>Gets or sets a value indicating whether an HttpClient instance is injected into the client.</summary>
+        /// <summary>Gets or sets a value indicating whether an HttpClient instance is injected into the client (default: true).</summary>
         public bool InjectHttpClient { get; set; }
 
         /// <summary>Gets or sets a value indicating whether to dispose the HttpClient (injected HttpClient is never disposed, default: true).</summary>
@@ -88,5 +91,8 @@ namespace NSwag.CodeGeneration.CSharp
 
         /// <summary>Gets or sets the null value used for query parameters which are null (default: '').</summary>
         public string QueryNullValue { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether to expose the JsonSerializerSettings property (default: false).</summary>
+        public bool ExposeJsonSerializerSettings { get; set; }
     }
 }

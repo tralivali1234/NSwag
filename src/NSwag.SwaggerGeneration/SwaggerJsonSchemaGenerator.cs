@@ -28,17 +28,17 @@ namespace NSwag.SwaggerGeneration
         }
 
         /// <summary>Generates the properties for the given type and schema.</summary>
-        /// <typeparam name="TSchemaType">The type of the schema type.</typeparam>
         /// <param name="type">The types.</param>
+        /// <param name="typeDescription">The type desription.</param>
         /// <param name="schema">The properties</param>
         /// <param name="schemaResolver">The schema resolver.</param>
         /// <returns></returns>
-        protected override async Task GenerateObjectAsync<TSchemaType>(Type type, TSchemaType schema, JsonSchemaResolver schemaResolver)
+        protected override async Task GenerateObjectAsync(Type type, JsonTypeDescription typeDescription, JsonSchema4 schema, JsonSchemaResolver schemaResolver)
         {
             if (_isRootType)
             {
                 _isRootType = false;
-                await base.GenerateObjectAsync(type, schema, schemaResolver);
+                await base.GenerateObjectAsync(type, typeDescription, schema, schemaResolver);
                 _isRootType = true;
             }
             else
@@ -50,7 +50,7 @@ namespace NSwag.SwaggerGeneration
                     _isRootType = false;
                 }
 
-                schema.SchemaReference = schemaResolver.GetSchema(type, false);
+                schema.Reference = schemaResolver.GetSchema(type, false);
             }
         }
 
@@ -62,7 +62,7 @@ namespace NSwag.SwaggerGeneration
         /// <param name="schemaResolver">The schema resolver.</param>
         /// <param name="transformation">An action to transform the resulting schema (e.g. property or parameter) before the type of reference is determined (with $ref or allOf/oneOf).</param>
         /// <returns>The requested schema object.</returns>
-        public override async Task<TSchemaType> GenerateWithReferenceAndNullability<TSchemaType>(
+        public override async Task<TSchemaType> GenerateWithReferenceAndNullabilityAsync<TSchemaType>(
             Type type, IEnumerable<Attribute> parentAttributes, bool isNullable,
             JsonSchemaResolver schemaResolver, Func<TSchemaType, JsonSchema4, Task> transformation = null)
         {
@@ -72,10 +72,13 @@ namespace NSwag.SwaggerGeneration
             if (type.Name == "JsonResult`1")
                 type = type.GenericTypeArguments[0];
 
+            if (type.Name == "ActionResult`1")
+                type = type.GenericTypeArguments[0];
+
             if (IsFileResponse(type))
                 return new TSchemaType { Type = JsonObjectType.File };
 
-            return await base.GenerateWithReferenceAndNullability(type, parentAttributes, isNullable, schemaResolver, transformation);
+            return await base.GenerateWithReferenceAndNullabilityAsync(type, parentAttributes, isNullable, schemaResolver, transformation);
         }
 
         private bool IsFileResponse(Type returnType)
@@ -84,7 +87,7 @@ namespace NSwag.SwaggerGeneration
                    returnType.Name == "IActionResult" ||
                    returnType.Name == "IHttpActionResult" ||
                    returnType.Name == "HttpResponseMessage" ||
-                   returnType.InheritsFrom("ActionResult", TypeNameStyle.Name) ||
+                   returnType.IsAssignableTo("ActionResult", TypeNameStyle.Name) ||
                    returnType.InheritsFrom("HttpResponseMessage", TypeNameStyle.Name);
         }
     }

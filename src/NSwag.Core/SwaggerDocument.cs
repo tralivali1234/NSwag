@@ -6,208 +6,197 @@
 // <author>Rico Suter, mail@rsuter.com</author>
 //-----------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 using NJsonSchema;
 using NJsonSchema.Generation;
 using NJsonSchema.Infrastructure;
 using NSwag.Collections;
-using NSwag.Infrastructure;
 
 namespace NSwag
 {
     /// <summary>Describes a JSON web service.</summary>
-    public class SwaggerDocument : JsonExtensionObject, IDocumentPathProvider
+    public partial class SwaggerDocument : JsonExtensionObject, IDocumentPathProvider
     {
         /// <summary>Initializes a new instance of the <see cref="SwaggerDocument"/> class.</summary>
         public SwaggerDocument()
         {
             Swagger = "2.0";
-            Info = new SwaggerInfo();
-            Schemes = new List<SwaggerSchema>();
-            SecurityDefinitions = new Dictionary<string, SwaggerSecurityScheme>();
-            Info = new SwaggerInfo
-            {
-                Version = string.Empty,
-                Title = string.Empty
-            };
+            OpenApi = "3.0.0";
+            Components = new OpenApiComponents(this);
 
-            var definitions = new ObservableDictionary<string, JsonSchema4>();
-            definitions.CollectionChanged += (sender, args) =>
-            {
-                foreach (var path in Definitions.Values)
-                    path.Parent = this;
-            };
-            Definitions = definitions;
-
-            var paths = new ObservableDictionary<string, SwaggerOperations>();
+            var paths = new ObservableDictionary<string, SwaggerPathItem>();
             paths.CollectionChanged += (sender, args) =>
             {
                 foreach (var path in Paths.Values)
                     path.Parent = this;
             };
+
             Paths = paths;
-
-            var parameters = new ObservableDictionary<string, SwaggerParameter>();
-            parameters.CollectionChanged += (sender, args) =>
-            {
-                foreach (var path in Parameters.Values)
-                    path.Parent = this;
-            };
-            Parameters = parameters;
-
-            var responses = new ObservableDictionary<string, SwaggerResponse>();
-            responses.CollectionChanged += (sender, args) =>
-            {
-                foreach (var path in Responses.Values)
-                    path.Parent = this;
-            };
-            Responses = responses;
+            Info = new SwaggerInfo();
         }
 
         /// <summary>Gets the NSwag toolchain version.</summary>
         public static string ToolchainVersion => typeof(SwaggerDocument).GetTypeInfo().Assembly.GetName().Version.ToString();
 
-        /// <summary>Gets the document path (URI or file path).</summary>
+        /// <summary>Gets or sets the preferred schema type.</summary>
         [JsonIgnore]
-        public string DocumentPath { get; private set; }
+        public SchemaType SchemaType { get; set; } = SchemaType.Swagger2;
+
+        /// <summary>Gets or sets the document path (URI or file path).</summary>
+        [JsonIgnore]
+        public string DocumentPath { get; set; }
 
         /// <summary>Gets or sets the Swagger generator information.</summary>
-        [JsonProperty(PropertyName = "x-generator", DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
+        [JsonProperty(PropertyName = "x-generator", Order = 1, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
         public string Generator { get; set; }
 
-        /// <summary>Gets or sets the Swagger specification version being used.</summary>
-        [JsonProperty(PropertyName = "swagger", DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
+        /// <summary>Gets or sets the Swagger specification version being used (Swagger only).</summary>
+        [JsonProperty(PropertyName = "swagger", Order = 2, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
         public string Swagger { get; set; }
 
+        /// <summary>Gets or sets the OpenAPI specification version being used (OpenAPI only).</summary>
+        [JsonProperty(PropertyName = "openapi", Order = 3, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
+        public string OpenApi { get; set; }
+
         /// <summary>Gets or sets the metadata about the API.</summary>
-        [JsonProperty(PropertyName = "info", DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
+        [JsonProperty(PropertyName = "info", Order = 4, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
         public SwaggerInfo Info { get; set; }
 
-        /// <summary>Gets or sets the host (name or ip) serving the API.</summary>
-        [JsonProperty(PropertyName = "host", DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
-        public string Host { get; set; }
-
-        /// <summary>Gets or sets the base path on which the API is served, which is relative to the <see cref="Host"/>.</summary>
-        [JsonProperty(PropertyName = "basePath", DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
-        public string BasePath { get; set; }
-
-        /// <summary>Gets or sets the schemes.</summary>
-        [JsonProperty(PropertyName = "schemes", DefaultValueHandling = DefaultValueHandling.Ignore, ItemConverterType = typeof(StringEnumConverter))]
-        public List<SwaggerSchema> Schemes { get; set; }
-
-        /// <summary>Gets or sets a list of MIME types the operation can consume.</summary>
-        [JsonProperty(PropertyName = "consumes", DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public List<string> Consumes { get; set; }
-
-        /// <summary>Gets or sets a list of MIME types the operation can produce.</summary>
-        [JsonProperty(PropertyName = "produces", DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public List<string> Produces { get; set; }
+        /// <summary>Gets or sets the servers (OpenAPI only).</summary>
+        [JsonProperty(PropertyName = "servers", Order = 10, DefaultValueHandling = DefaultValueHandling.IgnoreAndPopulate)]
+        public ICollection<OpenApiServer> Servers { get; private set; } = new Collection<OpenApiServer>();
 
         /// <summary>Gets or sets the operations.</summary>
-        [JsonProperty(PropertyName = "paths", DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public IDictionary<string, SwaggerOperations> Paths { get; }
+        [JsonProperty(PropertyName = "paths", Order = 11, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public IDictionary<string, SwaggerPathItem> Paths { get; }
 
-        /// <summary>Gets or sets the types.</summary>
-        [JsonProperty(PropertyName = "definitions", DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public IDictionary<string, JsonSchema4> Definitions { get; }
-
-        /// <summary>Gets or sets the parameters which can be used for all operations.</summary>
-        [JsonProperty(PropertyName = "parameters", DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public IDictionary<string, SwaggerParameter> Parameters { get; }
-
-        /// <summary>Gets or sets the responses which can be used for all operations.</summary>
-        [JsonProperty(PropertyName = "responses", DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public IDictionary<string, SwaggerResponse> Responses { get; }
-
-        /// <summary>Gets or sets the security definitions.</summary>
-        [JsonProperty(PropertyName = "securityDefinitions", DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public Dictionary<string, SwaggerSecurityScheme> SecurityDefinitions { get; }
+        /// <summary>Gets or sets the components.</summary>
+        [JsonProperty(PropertyName = "components", Order = 12, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public OpenApiComponents Components { get; }
 
         /// <summary>Gets or sets a security description.</summary>
-        [JsonProperty(PropertyName = "security", DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public List<SwaggerSecurityRequirement> Security { get; set; }
+        [JsonProperty(PropertyName = "security", Order = 17, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public ICollection<SwaggerSecurityRequirement> Security { get; set; } = new Collection<SwaggerSecurityRequirement>();
 
         /// <summary>Gets or sets the description.</summary>
-        [JsonProperty(PropertyName = "tags", DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public List<SwaggerTag> Tags { get; set; }
+        [JsonProperty(PropertyName = "tags", Order = 18, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public IList<SwaggerTag> Tags { get; set; } = new Collection<SwaggerTag>();
 
         /// <summary>Gets the base URL of the web service.</summary>
         [JsonIgnore]
-        public string BaseUrl
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(Host))
-                    return "";
-
-                if (Schemes.Any())
-                    return (Schemes.First().ToString().ToLowerInvariant() + "://" + Host + (!string.IsNullOrEmpty(BasePath) ? "/" + BasePath.Trim('/') : string.Empty)).Trim('/');
-
-                return ("http://" + Host + (!string.IsNullOrEmpty(BasePath) ? "/" + BasePath.Trim('/') : string.Empty)).Trim('/');
-            }
-        }
+        public string BaseUrl => Servers?.FirstOrDefault(s => s.IsValid)?.Url ?? "";
 
         /// <summary>Gets or sets the external documentation.</summary>
-        [JsonProperty(PropertyName = "externalDocs", DefaultValueHandling = DefaultValueHandling.Ignore)]
+        [JsonProperty(PropertyName = "externalDocs", Order = 19, DefaultValueHandling = DefaultValueHandling.Ignore)]
         public SwaggerExternalDocumentation ExternalDocumentation { get; set; }
 
         /// <summary>Converts the Swagger specification to JSON.</summary>
         /// <returns>The JSON string.</returns>
         public string ToJson()
         {
-            return ToJson(new JsonSchemaGeneratorSettings());
+            return ToJson(SchemaType);
         }
 
         /// <summary>Converts the description object to JSON.</summary>
-        /// <param name="settings">The JSON Schema generator settings.</param>
+        /// <param name="schemaType">The schema type.</param>
         /// <returns>The JSON string.</returns>
-        public string ToJson(JsonSchemaGeneratorSettings settings)
+        public string ToJson(SchemaType schemaType)
         {
-            var jsonResolver = new PropertyRenameAndIgnoreSerializerContractResolver();
+            return ToJson(schemaType, Formatting.Indented);
+        }
 
-            // Ignore properties which are not allowed in Swagger
-            jsonResolver.IgnoreProperty(typeof(SwaggerParameter), "title");
-            
-            // Newtonsoft.Json and NJsonSchema call it "readonly", but Swagger calls it "readOnly"
-            jsonResolver.RenameProperty(typeof(JsonProperty), "readonly", "readOnly");
-
-            var serializerSettings = new JsonSerializerSettings
-            {
-                PreserveReferencesHandling = PreserveReferencesHandling.None,
-                Formatting = Formatting.Indented,
-                ContractResolver = jsonResolver
-            };
-
+        /// <summary>Converts the description object to JSON.</summary>
+        /// <param name="schemaType">The schema type.</param>
+        /// <param name="formatting">The formatting.</param>
+        /// <returns>The JSON string.</returns>
+        public string ToJson(SchemaType schemaType, Formatting formatting)
+        {
             GenerateOperationIds();
 
-            JsonSchemaReferenceUtilities.UpdateSchemaReferencePaths(this);
-            return JsonSchemaReferenceUtilities.ConvertPropertyReferences(JsonConvert.SerializeObject(this, serializerSettings));
+            var contractResolver = GetJsonSerializerContractResolver(schemaType);
+            return JsonSchemaSerialization.ToJson(this, schemaType, contractResolver, formatting);
+        }
+
+        /// <summary>Creates a Swagger specification from a JSON string.</summary>
+        /// <param name="data">The JSON data.</param>
+        /// <returns>The <see cref="SwaggerDocument"/>.</returns>
+        public static Task<SwaggerDocument> FromJsonAsync(string data)
+        {
+            return FromJsonAsync(data, null, SchemaType.Swagger2, null);
         }
 
         /// <summary>Creates a Swagger specification from a JSON string.</summary>
         /// <param name="data">The JSON data.</param>
         /// <param name="documentPath">The document path (URL or file path) for resolving relative document references.</param>
         /// <returns>The <see cref="SwaggerDocument"/>.</returns>
-        public static async Task<SwaggerDocument> FromJsonAsync(string data, string documentPath = null)
+        public static Task<SwaggerDocument> FromJsonAsync(string data, string documentPath)
         {
-            data = JsonSchemaReferenceUtilities.ConvertJsonReferences(data);
-            var document = JsonConvert.DeserializeObject<SwaggerDocument>(data, new JsonSerializerSettings
-            {
-                ConstructorHandling = ConstructorHandling.Default,
-                ReferenceLoopHandling = ReferenceLoopHandling.Serialize,
-                PreserveReferencesHandling = PreserveReferencesHandling.Objects
-            });
-            document.DocumentPath = documentPath;
+            return FromJsonAsync(data, documentPath, SchemaType.Swagger2, null);
+        }
 
-            var schemaResolver = new SwaggerSchemaResolver(document, new JsonSchemaGeneratorSettings());
-            var referenceResolver = new JsonReferenceResolver(schemaResolver); 
-            await JsonSchemaReferenceUtilities.UpdateSchemaReferencesAsync(document, referenceResolver).ConfigureAwait(false);
-            return document;
+        /// <summary>Creates a Swagger specification from a JSON string.</summary>
+        /// <param name="data">The JSON data.</param>
+        /// <param name="documentPath">The document path (URL or file path) for resolving relative document references.</param>
+        /// <param name="expectedSchemaType">The expected schema type which is used when the type cannot be determined.</param>
+        /// <returns>The <see cref="SwaggerDocument"/>.</returns>
+        public static Task<SwaggerDocument> FromJsonAsync(string data, string documentPath, SchemaType expectedSchemaType)
+        {
+            return FromJsonAsync(data, documentPath, expectedSchemaType, null);
+        }
+
+        /// <summary>Creates a Swagger specification from a JSON string.</summary>
+        /// <param name="data">The JSON data.</param>
+        /// <param name="documentPath">The document path (URL or file path) for resolving relative document references.</param>
+        /// <param name="expectedSchemaType">The expected schema type which is used when the type cannot be determined.</param>
+        /// <param name="referenceResolverFactory">The JSON reference resolver factory.</param>
+        /// <returns>The <see cref="SwaggerDocument"/>.</returns>
+        public static async Task<SwaggerDocument> FromJsonAsync(string data, string documentPath, SchemaType expectedSchemaType, Func<SwaggerDocument, JsonReferenceResolver> referenceResolverFactory)
+        {
+            // For explanation of the regex use https://regexr.com/ and the below unescaped pattern that is without named groups
+            // (?:\"(openapi|swagger)\")(?:\s*:\s*)(?:\"([^"]*)\")
+            var pattern = "(?:\\\"(?<schemaType>openapi|swagger)\\\")(?:\\s*:\\s*)(?:\\\"(?<schemaVersion>[^\"]*)\\\")";
+            var match = Regex.Match(data, pattern, RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                var schemaType = match.Groups["schemaType"].Value.ToLower();
+                var schemaVersion = match.Groups["schemaVersion"].Value.ToLower();
+
+                if (schemaType == "swagger" && schemaVersion.StartsWith("2"))
+                {
+                    expectedSchemaType = SchemaType.Swagger2;
+                }
+                else if (schemaType == "openapi" && schemaVersion.StartsWith("3"))
+                {
+                    expectedSchemaType = SchemaType.OpenApi3;
+                }
+            }
+
+            if (expectedSchemaType == SchemaType.JsonSchema)
+            {
+                throw new NotSupportedException("The schema type JsonSchema is not supported.");
+            }
+
+            var contractResolver = GetJsonSerializerContractResolver(expectedSchemaType);
+            return await JsonSchemaSerialization.FromJsonAsync<SwaggerDocument>(data, expectedSchemaType, documentPath, document =>
+            {
+                document.SchemaType = expectedSchemaType;
+                if (referenceResolverFactory != null)
+                {
+                    return referenceResolverFactory(document);
+                }
+                else
+                {
+                    var schemaResolver = new SwaggerSchemaResolver(document, new JsonSchemaGeneratorSettings());
+                    return new JsonReferenceResolver(schemaResolver);
+                }
+            }, contractResolver).ConfigureAwait(false);
         }
 
         /// <summary>Creates a Swagger specification from a JSON file.</summary>
@@ -260,7 +249,9 @@ namespace NSwag
                 {
                     // Append "All" if possible
                     var arrayResponseOperation = operations.FirstOrDefault(
-                        a => a.Operation.ActualResponses.Any(r => HttpUtilities.IsSuccessStatusCode(r.Key) && r.Value.ActualResponseSchema != null && r.Value.ActualResponseSchema.Type == JsonObjectType.Array));
+                        o => o.Operation.ActualResponses.Any(r => 
+                            HttpUtilities.IsSuccessStatusCode(r.Key) && 
+                            r.Value.GetActualResponseSchema(o.Operation)?.Type == JsonObjectType.Array));
 
                     if (arrayResponseOperation != null)
                     {

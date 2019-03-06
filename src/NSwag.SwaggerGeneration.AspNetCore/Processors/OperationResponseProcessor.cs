@@ -7,6 +7,7 @@
 //-----------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -40,7 +41,6 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Processors
                 return false;
 
             var parameter = context.MethodInfo.ReturnParameter;
-            var successXmlDescription = await parameter.GetDescriptionAsync(parameter.GetCustomAttributes()).ConfigureAwait(false) ?? string.Empty;
 
             var responseTypeAttributes = context.MethodInfo.GetCustomAttributes()
                 .Where(a => a.GetType().Name == "ResponseTypeAttribute" ||
@@ -54,6 +54,9 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Processors
             var operation = context.OperationDescription.Operation;
             foreach (var requestFormat in context.ApiDescription.SupportedRequestFormats)
             {
+                if (operation.Consumes == null)
+                    operation.Consumes = new List<string>();
+
                 if (!operation.Consumes.Contains(requestFormat.MediaType, StringComparer.OrdinalIgnoreCase))
                 {
                     operation.Consumes.Add(requestFormat.MediaType);
@@ -72,34 +75,65 @@ namespace NSwag.SwaggerGeneration.AspNetCore.Processors
                     var returnType = apiResponse.Type;
                     var response = new SwaggerResponse();
                     string httpStatusCode;
-                    if (apiResponse.StatusCode == 0 && IsVoidResponse(returnType))
-                        httpStatusCode = "200";
-                    else if (apiResponse.TryGetPropertyValue<bool>("IsDefaultResponse"))
+
+                    if (apiResponse.TryGetPropertyValue<bool>("IsDefaultResponse"))
                         httpStatusCode = "default";
+                    else if (apiResponse.StatusCode == 0 && IsVoidResponse(returnType))
+                        httpStatusCode = "200";
                     else
                         httpStatusCode = apiResponse.StatusCode.ToString(CultureInfo.InvariantCulture);
 
-                    var typeDescription = _settings.ReflectionService.GetDescription(
-                        returnType, GetParameterAttributes(context.MethodInfo.ReturnParameter), _settings);
-
                     if (IsVoidResponse(returnType) == false)
                     {
+                        var typeDescription = _settings.ReflectionService.GetDescription(
+                            returnType, GetParameterAttributes(context.MethodInfo.ReturnParameter), _settings);
+
                         response.IsNullableRaw = typeDescription.IsNullable;
 
                         response.Schema = await context.SchemaGenerator
-                            .GenerateWithReferenceAndNullability<JsonSchema4>(
+                            .GenerateWithReferenceAndNullabilityAsync<JsonSchema4>(
                                 returnType, null, typeDescription.IsNullable, context.SchemaResolver)
                             .ConfigureAwait(false);
                     }
 
                     context.OperationDescription.Operation.Responses[httpStatusCode] = response;
 
+                    if (operation.Produces == null)
+                        operation.Produces = new List<string>();
+
                     foreach (var responseFormat in apiResponse.ApiResponseFormats)
                     {
-                        if (!context.Document.Produces.Contains(responseFormat.MediaType, StringComparer.OrdinalIgnoreCase))
+                        if (!operation.Produces.Contains(responseFormat.MediaType, StringComparer.OrdinalIgnoreCase))
                         {
-                            context.Document.Produces.Add(responseFormat.MediaType);
+                            operation.Produces.Add(responseFormat.MediaType);
                         }
+                    }
+                }
+            }
+
+            if (context.OperationDescription.Operation.Responses.Count == 0)
+            {
+                context.OperationDescription.Operation.Responses[GetVoidResponseStatusCode()] = new SwaggerResponse
+                {
+                    IsNullableRaw = true,
+                    Schema = new JsonSchema4
+                    {
+                        Type = JsonObjectType.File
+                    }
+                };
+            }
+
+            var successXmlDescription = await parameter.GetDescriptionAsync(parameter.GetCustomAttributes())
+                .ConfigureAwait(false) ?? string.Empty;
+            
+            if (!string.IsNullOrEmpty(successXmlDescription))
+            {
+                foreach (var response in context.OperationDescription.Operation.Responses
+                    .Where(r => HttpUtilities.IsSuccessStatusCode(r.Key)))
+                {
+                    if (!string.IsNullOrEmpty(response.Value.Description))
+                    {
+                        response.Value.Description = successXmlDescription;
                     }
                 }
             }

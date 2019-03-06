@@ -6,338 +6,332 @@
 // <author>Rico Suter, mail@rsuter.com</author>
 //-----------------------------------------------------------------------
 
-using System;
-using System.Linq;
-using System.Collections.Generic;
-using System.Reflection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using NSwag.AspNetCore.Middlewares;
 using NSwag.SwaggerGeneration;
+using NSwag.SwaggerGeneration.AspNetCore;
 using NSwag.SwaggerGeneration.WebApi;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 
 namespace NSwag.AspNetCore
 {
-    /// <summary>Provides OWIN extensions to enable Swagger UI.</summary>
+    // Obsolete extension methods only, see /Extensions directory for supported extensions.
+
+    /// <summary>Provides extensions to enable Swagger UI.</summary>
     public static class SwaggerExtensions
     {
         #region Swagger
 
-        /// <summary>Addes the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator that uses reflection (legacy) and Swagger UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="webApiAssembly">The Web API assembly to search for controller types.</param>
-        /// <param name="settings">The Swagger generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "() and " + nameof(UseSwagger) + "() instead.")]
         public static IApplicationBuilder UseSwagger(
             this IApplicationBuilder app,
             Assembly webApiAssembly,
-            SwaggerSettings settings)
+            Action<SwaggerSettings<WebApiToSwaggerGeneratorSettings>> configure = null)
         {
-            return app.UseSwagger(new[] { webApiAssembly }, settings);
+            return app.UseSwagger(new[] { webApiAssembly }, configure);
         }
 
-        /// <summary>Addes the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator that uses reflection (legacy) and Swagger UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="webApiAssemblies">The Web API assemblies to search for controller types.</param>
-        /// <param name="settings">The Swagger generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "() and " + nameof(UseSwagger) + "() instead.")]
         public static IApplicationBuilder UseSwagger(
             this IApplicationBuilder app,
             IEnumerable<Assembly> webApiAssemblies,
-            SwaggerSettings settings)
+            Action<SwaggerSettings<WebApiToSwaggerGeneratorSettings>> configure = null)
         {
             var controllerTypes = webApiAssemblies.SelectMany(WebApiToSwaggerGenerator.GetControllerClasses);
-            return app.UseSwagger(controllerTypes, settings);
+            return app.UseSwagger(controllerTypes, configure);
         }
 
-        /// <summary>Addes the Swagger generator to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator that uses reflection (legacy) to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="controllerTypes">The Web API controller types.</param>
-        /// <param name="settings">The Swagger generator settings.</param>
-        /// <returns>The app builder.</returns>
-        public static IApplicationBuilder UseSwagger(
-            this IApplicationBuilder app,
-            IEnumerable<Type> controllerTypes,
-            SwaggerSettings settings)
-        {
-            return app.UseSwagger(controllerTypes, settings, new SwaggerJsonSchemaGenerator(settings));
-        }
-
-        /// <summary>Addes the Swagger generator to the OWIN pipeline.</summary>
-        /// <param name="app">The app.</param>
-        /// <param name="controllerTypes">The Web API controller types.</param>
-        /// <param name="settings">The Swagger generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <param name="schemaGenerator">The schema generator.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "() and " + nameof(UseSwagger) + "() instead.")]
         public static IApplicationBuilder UseSwagger(
             this IApplicationBuilder app,
             IEnumerable<Type> controllerTypes,
-            SwaggerSettings settings,
-            SwaggerJsonSchemaGenerator schemaGenerator)
+            Action<SwaggerSettings<WebApiToSwaggerGeneratorSettings>> configure = null,
+            SwaggerJsonSchemaGenerator schemaGenerator = null)
         {
-            app.UseMiddleware<SwaggerMiddleware>(settings.ActualSwaggerRoute, controllerTypes, settings, schemaGenerator);
+            var settings = new SwaggerSettings<WebApiToSwaggerGeneratorSettings>();
+            configure?.Invoke(settings);
+            app.UseMiddleware<WebApiToSwaggerMiddleware>(settings.ActualSwaggerDocumentPath, controllerTypes, settings, schemaGenerator ?? new SwaggerJsonSchemaGenerator(settings.GeneratorSettings));
             return app;
         }
 
-        /// <summary>Adds the Swagger generator to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator that uses Api Description to perform Swagger generation.</summary>
         /// <param name="app">The app.</param>
-        /// <param name="controllerTypes">The Web API controller types.</param>
-        /// <param name="configure">Configure the Swagger generator settings.</param>
-        public static IApplicationBuilder UseSwagger(
-            this IApplicationBuilder app,
-            IEnumerable<Type> controllerTypes,
-            Action<SwaggerSettings> configure = null)
+        /// <param name="configure">Configure additional settings.</param>
+        [Obsolete("Use " + nameof(UseSwagger) + " instead.")]
+        public static IApplicationBuilder UseSwaggerWithApiExplorer(this IApplicationBuilder app, Action<SwaggerDocumentMiddlewareSettings> configure = null)
         {
-            var settings = new SwaggerSettings();
-            configure?.Invoke(settings);
-            return app.UseSwagger(controllerTypes, settings, new SwaggerJsonSchemaGenerator(settings));
+            return NSwagApplicationBuilderExtensions.UseSwagger(app, configure);
         }
 
         #endregion
 
         #region SwaggerUi
 
-        /// <summary>Addes the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator and Swagger UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="webApiAssembly">The Web API assembly to search for controller types.</param>
-        /// <param name="settings">The Swagger UI and generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and " + nameof(UseSwaggerUi3) + "() instead.")]
         public static IApplicationBuilder UseSwaggerUi(
             this IApplicationBuilder app,
             Assembly webApiAssembly,
-            SwaggerUiSettings settings)
+            Action<SwaggerUiSettings<WebApiToSwaggerGeneratorSettings>> configure = null)
         {
-            return app.UseSwaggerUi(new[] { webApiAssembly }, settings);
+            return app.UseSwaggerUi(new[] { webApiAssembly }, configure);
         }
 
-        /// <summary>Addes the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator and Swagger UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="webApiAssemblies">The Web API assemblies to search for controller types.</param>
-        /// <param name="settings">The Swagger UI and generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and " + nameof(UseSwaggerUi3) + "() instead.")]
         public static IApplicationBuilder UseSwaggerUi(
             this IApplicationBuilder app,
             IEnumerable<Assembly> webApiAssemblies,
-            SwaggerUiSettings settings)
+            Action<SwaggerUiSettings<WebApiToSwaggerGeneratorSettings>> configure = null)
         {
             var controllerTypes = webApiAssemblies.SelectMany(WebApiToSwaggerGenerator.GetControllerClasses);
-            return app.UseSwaggerUi(controllerTypes, settings, new SwaggerJsonSchemaGenerator(settings));
+            return app.UseSwaggerUi(controllerTypes, configure);
         }
 
-        /// <summary>Addes the Swagger UI (only) to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger UI (only) to the pipeline.</summary>
         /// <param name="app">The app.</param>
-        /// <param name="settings">The Swagger UI settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(UseSwaggerUi3) + " instead.")]
         public static IApplicationBuilder UseSwaggerUi(
             this IApplicationBuilder app,
-            SwaggerUiSettings settings)
+            Action<SwaggerUiSettings<WebApiToSwaggerGeneratorSettings>> configure = null)
         {
-            return app.UseSwaggerUi(null, settings, null);
+            return app.UseSwaggerUi(null, configure, null);
         }
 
-        /// <summary>Addes the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator and Swagger UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="controllerTypes">The Web API controller types.</param>
-        /// <param name="settings">The Swagger UI and generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <param name="schemaGenerator">The schema generator.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and " + nameof(UseSwaggerUi3) + "() instead.")]
         public static IApplicationBuilder UseSwaggerUi(
             this IApplicationBuilder app,
             IEnumerable<Type> controllerTypes,
-            SwaggerUiSettings settings,
-            SwaggerJsonSchemaGenerator schemaGenerator)
+            Action<SwaggerUiSettings<WebApiToSwaggerGeneratorSettings>> configure = null,
+            SwaggerJsonSchemaGenerator schemaGenerator = null)
         {
-            if (controllerTypes != null)
-                app.UseMiddleware<SwaggerMiddleware>(settings.ActualSwaggerRoute, controllerTypes, settings, schemaGenerator);
+            var settings = new SwaggerUiSettings<WebApiToSwaggerGeneratorSettings>();
+            settings.DocumentPath = "/swagger/v1/swagger.json";
+            configure?.Invoke(settings);
 
-            app.UseMiddleware<RedirectMiddleware>(settings.ActualSwaggerUiRoute, settings.ActualSwaggerRoute);
-            app.UseMiddleware<SwaggerUiIndexMiddleware>(settings.ActualSwaggerUiRoute + "/index.html", settings, "NSwag.AspNetCore.SwaggerUi.index.html");
+            if (controllerTypes != null)
+                app.UseMiddleware<WebApiToSwaggerMiddleware>(settings.ActualSwaggerDocumentPath, controllerTypes, settings, schemaGenerator ?? new SwaggerJsonSchemaGenerator(settings.GeneratorSettings));
+
+            app.UseMiddleware<RedirectToIndexMiddleware>(settings.ActualSwaggerUiPath, settings.ActualSwaggerDocumentPath, settings.TransformToExternalPath);
+            app.UseMiddleware<SwaggerUiIndexMiddleware<WebApiToSwaggerGeneratorSettings>>(settings.ActualSwaggerUiPath + "/index.html", settings, "NSwag.AspNetCore.SwaggerUi.index.html");
             app.UseFileServer(new FileServerOptions
             {
-                RequestPath = new PathString(settings.ActualSwaggerUiRoute),
+                RequestPath = new PathString(settings.ActualSwaggerUiPath),
                 FileProvider = new EmbeddedFileProvider(typeof(SwaggerExtensions).GetTypeInfo().Assembly, "NSwag.AspNetCore.SwaggerUi")
             });
 
             return app;
         }
 
-        /// <summary>Adds the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator and Swagger UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
-        /// <param name="controllerTypes">The Web API controller types.</param>
-        /// <param name="configure">Configure the Swagger generator and UI settings.</param>
-        public static IApplicationBuilder UseSwaggerUi(
+        /// <param name="configure">Configure the Swagger settings.</param>
+        /// <param name="schemaGenerator">The schema generator.</param>
+        /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and " + nameof(UseSwaggerUi3) + "() instead.")]
+        public static IApplicationBuilder UseSwaggerUiWithApiExplorer(
             this IApplicationBuilder app,
-            IEnumerable<Type> controllerTypes,
-            Action<SwaggerUiSettings> configure = null)
+            Action<SwaggerUiSettings<AspNetCoreToSwaggerGeneratorSettings>> configure = null,
+            SwaggerJsonSchemaGenerator schemaGenerator = null)
         {
-            var settings = new SwaggerUiSettings();
-            configure?.Invoke(settings);
-            return app.UseSwaggerUi(controllerTypes, settings, new SwaggerJsonSchemaGenerator(settings));
+            throw new NotSupportedException("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) +
+                "() and " + nameof(UseSwaggerUi3) + "() instead.");
         }
 
         #endregion
 
         #region SwaggerUi3
 
-        /// <summary>Addes the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator that uses reflection (legacy) and Swagger UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="webApiAssembly">The Web API assembly to search for controller types.</param>
-        /// <param name="settings">The Swagger UI and generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and " + nameof(UseSwaggerUi3) + "() instead.")]
         public static IApplicationBuilder UseSwaggerUi3(
             this IApplicationBuilder app,
             Assembly webApiAssembly,
-            SwaggerUi3Settings settings)
+            Action<SwaggerUi3Settings<WebApiToSwaggerGeneratorSettings>> configure = null)
         {
-            return app.UseSwaggerUi3(new[] { webApiAssembly }, settings);
+            return app.UseSwaggerUi3(new[] { webApiAssembly }, configure);
         }
 
-        /// <summary>Addes the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator that uses reflection (legacy) and Swagger UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="webApiAssemblies">The Web API assemblies to search for controller types.</param>
-        /// <param name="settings">The Swagger UI and generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and " + nameof(UseSwaggerUi3) + "() instead.")]
         public static IApplicationBuilder UseSwaggerUi3(
             this IApplicationBuilder app,
             IEnumerable<Assembly> webApiAssemblies,
-            SwaggerUi3Settings settings)
+            Action<SwaggerUi3Settings<WebApiToSwaggerGeneratorSettings>> configure = null)
         {
             var controllerTypes = webApiAssemblies.SelectMany(WebApiToSwaggerGenerator.GetControllerClasses);
-            return app.UseSwaggerUi3(controllerTypes, settings, new SwaggerJsonSchemaGenerator(settings));
+            return app.UseSwaggerUi3(controllerTypes, configure);
         }
 
-        /// <summary>Addes the Swagger UI (only) to the OWIN pipeline.</summary>
-        /// <param name="app">The app.</param>
-        /// <param name="settings">The Swagger UI settings.</param>
-        /// <returns>The app builder.</returns>
-        public static IApplicationBuilder UseSwaggerUi3(
-            this IApplicationBuilder app,
-            SwaggerUi3Settings settings)
-        {
-            return app.UseSwaggerUi3(null, settings, null);
-        }
-
-        /// <summary>Addes the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator that uses reflection (legacy) and Swagger UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="controllerTypes">The Web API controller types.</param>
-        /// <param name="settings">The Swagger UI and generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <param name="schemaGenerator">The schema generator.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and " + nameof(UseSwaggerUi3) + "() instead.")]
         public static IApplicationBuilder UseSwaggerUi3(
             this IApplicationBuilder app,
             IEnumerable<Type> controllerTypes,
-            SwaggerUi3Settings settings,
-            SwaggerJsonSchemaGenerator schemaGenerator)
+            Action<SwaggerUi3Settings<WebApiToSwaggerGeneratorSettings>> configure = null,
+            SwaggerJsonSchemaGenerator schemaGenerator = null)
         {
-            if (controllerTypes != null)
-                app.UseMiddleware<SwaggerMiddleware>(settings.ActualSwaggerRoute, controllerTypes, settings, schemaGenerator);
+            var settings = new SwaggerUi3Settings<WebApiToSwaggerGeneratorSettings>();
+            settings.DocumentPath = "/swagger/v1/swagger.json";
+            configure?.Invoke(settings);
 
-            app.UseMiddleware<RedirectMiddleware>(settings.ActualSwaggerUiRoute, settings.ActualSwaggerRoute);
-            app.UseMiddleware<SwaggerUiIndexMiddleware>(settings.ActualSwaggerUiRoute + "/index.html", settings, "NSwag.AspNetCore.SwaggerUi3.index.html");
+            if (controllerTypes != null)
+                app.UseMiddleware<WebApiToSwaggerMiddleware>(settings.ActualSwaggerDocumentPath, controllerTypes, settings, schemaGenerator ?? new SwaggerJsonSchemaGenerator(settings.GeneratorSettings));
+
+            app.UseMiddleware<RedirectToIndexMiddleware>(settings.ActualSwaggerUiPath, settings.ActualSwaggerDocumentPath, settings.TransformToExternalPath);
+            app.UseMiddleware<SwaggerUiIndexMiddleware<WebApiToSwaggerGeneratorSettings>>(settings.ActualSwaggerUiPath + "/index.html", settings, "NSwag.AspNetCore.SwaggerUi3.index.html");
             app.UseFileServer(new FileServerOptions
             {
-                RequestPath = new PathString(settings.ActualSwaggerUiRoute),
+                RequestPath = new PathString(settings.ActualSwaggerUiPath),
                 FileProvider = new EmbeddedFileProvider(typeof(SwaggerExtensions).GetTypeInfo().Assembly, "NSwag.AspNetCore.SwaggerUi3")
             });
 
             return app;
         }
 
-        /// <summary>Adds the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator and Swagger UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
-        /// <param name="controllerTypes">The Web API controller types.</param>
-        /// <param name="configure">Configure the Swagger generator and UI settings.</param>
-        public static IApplicationBuilder UseSwaggerUi3(
+        /// <param name="configure">Configure the Swagger settings.</param>
+        /// <param name="schemaGenerator">The schema generator.</param>
+        /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and " + nameof(UseSwaggerUi3) + "() instead.")]
+        public static IApplicationBuilder UseSwaggerUi3WithApiExplorer(
             this IApplicationBuilder app,
-            IEnumerable<Type> controllerTypes,
-            Action<SwaggerUi3Settings> configure = null)
+            Action<SwaggerUi3Settings<AspNetCoreToSwaggerGeneratorSettings>> configure = null,
+            SwaggerJsonSchemaGenerator schemaGenerator = null)
         {
-            var settings = new SwaggerUi3Settings();
-            configure?.Invoke(settings);
-            return app.UseSwaggerUi3(controllerTypes, settings, new SwaggerJsonSchemaGenerator(settings));
+            throw new NotSupportedException("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) +
+                "() and " + nameof(UseSwaggerUi3) + "() instead.");
         }
 
         #endregion
 
         #region ReDoc
 
-        /// <summary>Addes the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator that uses reflection (legacy) and ReDoc UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="webApiAssembly">The Web API assembly to search for controller types.</param>
-        /// <param name="settings">The Swagger UI and generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and UseReDoc() instead.")]
         public static IApplicationBuilder UseSwaggerReDoc(
             this IApplicationBuilder app,
             Assembly webApiAssembly,
-            SwaggerReDocSettings settings)
+            Action<SwaggerReDocSettings<WebApiToSwaggerGeneratorSettings>> configure = null)
         {
-            return app.UseSwaggerReDoc(new[] { webApiAssembly }, settings);
+            return app.UseSwaggerReDoc(new[] { webApiAssembly }, configure);
         }
 
-        /// <summary>Addes the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator that uses reflection (legacy) and ReDoc UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="webApiAssemblies">The Web API assemblies to search for controller types.</param>
-        /// <param name="settings">The Swagger UI and generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and UseReDoc() instead.")]
         public static IApplicationBuilder UseSwaggerReDoc(
             this IApplicationBuilder app,
             IEnumerable<Assembly> webApiAssemblies,
-            SwaggerReDocSettings settings)
+            Action<SwaggerReDocSettings<WebApiToSwaggerGeneratorSettings>> configure = null)
         {
             var controllerTypes = webApiAssemblies.SelectMany(WebApiToSwaggerGenerator.GetControllerClasses);
-            return app.UseSwaggerReDoc(controllerTypes, settings, new SwaggerJsonSchemaGenerator(settings));
+            return app.UseSwaggerReDoc(controllerTypes, configure);
         }
 
-        /// <summary>Addes the Swagger UI (only) to the OWIN pipeline.</summary>
-        /// <param name="app">The app.</param>
-        /// <param name="settings">The Swagger UI settings.</param>
-        /// <returns>The app builder.</returns>
-        public static IApplicationBuilder UseSwaggerReDoc(
-            this IApplicationBuilder app,
-            SwaggerReDocSettings settings)
-        {
-            return app.UseSwaggerReDoc(null, settings, null);
-        }
-
-        /// <summary>Addes the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator that uses reflection (legacy) and ReDoc UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
         /// <param name="controllerTypes">The Web API controller types.</param>
-        /// <param name="settings">The Swagger UI and generator settings.</param>
+        /// <param name="configure">Configure the Swagger settings.</param>
         /// <param name="schemaGenerator">The schema generator.</param>
         /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and UseReDoc() instead.")]
         public static IApplicationBuilder UseSwaggerReDoc(
             this IApplicationBuilder app,
             IEnumerable<Type> controllerTypes,
-            SwaggerReDocSettings settings,
-            SwaggerJsonSchemaGenerator schemaGenerator)
+            Action<SwaggerReDocSettings<WebApiToSwaggerGeneratorSettings>> configure = null,
+            SwaggerJsonSchemaGenerator schemaGenerator = null)
         {
-            if (controllerTypes != null)
-                app.UseMiddleware<SwaggerMiddleware>(settings.ActualSwaggerRoute, controllerTypes, settings, schemaGenerator);
+            var settings = new SwaggerReDocSettings<WebApiToSwaggerGeneratorSettings>();
+            settings.DocumentPath = "/swagger/v1/swagger.json";
+            configure?.Invoke(settings);
 
-            app.UseMiddleware<RedirectMiddleware>(settings.ActualSwaggerUiRoute, settings.ActualSwaggerRoute);
-            app.UseMiddleware<SwaggerUiIndexMiddleware>(settings.ActualSwaggerUiRoute + "/index.html", settings, "NSwag.AspNetCore.ReDoc.index.html");
+            if (controllerTypes != null)
+                app.UseMiddleware<WebApiToSwaggerMiddleware>(settings.ActualSwaggerDocumentPath, controllerTypes, settings, schemaGenerator ?? new SwaggerJsonSchemaGenerator(settings.GeneratorSettings));
+
+            app.UseMiddleware<RedirectToIndexMiddleware>(settings.ActualSwaggerUiPath, settings.ActualSwaggerDocumentPath, settings.TransformToExternalPath);
+            app.UseMiddleware<SwaggerUiIndexMiddleware<WebApiToSwaggerGeneratorSettings>>(settings.ActualSwaggerUiPath + "/index.html", settings, "NSwag.AspNetCore.ReDoc.index.html");
             app.UseFileServer(new FileServerOptions
             {
-                RequestPath = new PathString(settings.ActualSwaggerUiRoute),
+                RequestPath = new PathString(settings.ActualSwaggerUiPath),
                 FileProvider = new EmbeddedFileProvider(typeof(SwaggerExtensions).GetTypeInfo().Assembly, "NSwag.AspNetCore.ReDoc")
             });
 
             return app;
         }
 
-        /// <summary>Adds the Swagger generator and Swagger UI to the OWIN pipeline.</summary>
+        /// <summary>Adds the Swagger generator and Swagger UI to the pipeline.</summary>
         /// <param name="app">The app.</param>
-        /// <param name="controllerTypes">The Web API controller types.</param>
-        /// <param name="configure">Configure the Swagger generator and UI settings.</param>
-        public static IApplicationBuilder UseSwaggerReDoc(
+        /// <param name="configure">Configure the Swagger settings.</param>
+        /// <param name="schemaGenerator">The schema generator.</param>
+        /// <returns>The app builder.</returns>
+        [Obsolete("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) + "() and " + nameof(UseSwaggerReDoc) + "() instead.")]
+        public static IApplicationBuilder UseSwaggerReDocWithApiExplorer(
             this IApplicationBuilder app,
-            IEnumerable<Type> controllerTypes,
-            Action<SwaggerReDocSettings> configure = null)
+            Action<SwaggerUiSettings<AspNetCoreToSwaggerGeneratorSettings>> configure = null,
+            SwaggerJsonSchemaGenerator schemaGenerator = null)
         {
-            var settings = new SwaggerReDocSettings();
-            configure?.Invoke(settings);
-            return app.UseSwaggerReDoc(controllerTypes, settings, new SwaggerJsonSchemaGenerator(settings));
+            throw new NotSupportedException("Use " + nameof(NSwagServiceCollectionExtensions.AddSwaggerDocument) + "(), " + nameof(UseSwagger) +
+                "() and " + nameof(UseSwaggerReDoc) + "() instead.");
         }
 
         #endregion

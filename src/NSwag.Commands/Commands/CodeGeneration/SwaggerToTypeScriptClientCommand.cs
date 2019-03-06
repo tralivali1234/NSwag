@@ -45,7 +45,7 @@ namespace NSwag.Commands.CodeGeneration
             set { Settings.TypeScriptGeneratorSettings.Namespace = value; }
         }
 
-        [Argument(Name = "TypeScriptVersion", IsRequired = false, Description = "The target TypeScript version (default: 1.8).")]
+        [Argument(Name = "TypeScriptVersion", IsRequired = false, Description = "The target TypeScript version (default: 2.7).")]
         public decimal TypeScriptVersion
         {
             get { return Settings.TypeScriptGeneratorSettings.TypeScriptVersion; }
@@ -73,15 +73,29 @@ namespace NSwag.Commands.CodeGeneration
             get { return Settings.HttpClass; }
             set { Settings.HttpClass = value; }
         }
-        
-        [Argument(Name = "InjectionTokenType", IsRequired = false, Description = "The Angular injection token type (default 'OpaqueToken', 'InjectionToken').")]
+
+        [Argument(Name = "UseSingletonProvider", IsRequired = false, Description = "Specifies whether to use the Angular 6 Singleton Provider (Angular template only, default: false).")]
+        public bool UseSingletonProvider
+        {
+            get { return Settings.UseSingletonProvider; }
+            set { Settings.UseSingletonProvider = value; }
+        }
+
+        [Argument(Name = "InjectionTokenType", IsRequired = false, Description = "The Angular injection token type (default 'InjectionToken', 'OpaqueToken').")]
         public InjectionTokenType InjectionTokenType
         {
             get { return Settings.InjectionTokenType; }
             set { Settings.InjectionTokenType = value; }
         }
 
-        [Argument(Name = "DateTimeType", IsRequired = false, Description = "The date time type ('Date', 'MomentJS', 'string').")]
+        [Argument(Name = "RxJsVersion", IsRequired = false, Description = "The target RxJs version (default: 6.0).")]
+        public decimal RxJsVersion
+        {
+            get { return Settings.RxJsVersion; }
+            set { Settings.RxJsVersion = value; }
+        }
+
+        [Argument(Name = "DateTimeType", IsRequired = false, Description = "The date time type ('Date', 'MomentJS', 'OffsetMomentJS', 'string').")]
         public TypeScriptDateTimeType DateTimeType
         {
             get { return Settings.TypeScriptGeneratorSettings.DateTimeType; }
@@ -115,6 +129,13 @@ namespace NSwag.Commands.CodeGeneration
         {
             get { return Settings.GenerateOptionalParameters; }
             set { Settings.GenerateOptionalParameters = value; }
+        }
+        
+        [Argument(Name = "ExportTypes", IsRequired = false, Description = "Specifies whether the export keyword should be added to all classes, interfaces and enums (default: true).")]
+        public bool ExportTypes
+        {
+            get { return Settings.TypeScriptGeneratorSettings.ExportTypes; }
+            set { Settings.TypeScriptGeneratorSettings.ExportTypes = value; }
         }
 
         [Argument(Name = "WrapDtoExceptions", IsRequired = false, Description = "Specifies whether DTO exceptions are wrapped in a SwaggerException instance (default: false).")]
@@ -301,6 +322,13 @@ namespace NSwag.Commands.CodeGeneration
         {
             get { return Settings.QueryNullValue; }
             set { Settings.QueryNullValue = value; }
+        }
+
+        [Argument(Name = "InlineNamedDictionaries", Description = "Inline named dictionaries (default: false).", IsRequired = false)]
+        public bool InlineNamedDictionaries
+        {
+            get { return Settings.TypeScriptGeneratorSettings.InlineNamedDictionaries; }
+            set { Settings.TypeScriptGeneratorSettings.InlineNamedDictionaries = value; }
         }
 
         public override async Task<object> RunAsync(CommandLineProcessor processor, IConsoleHost host)

@@ -63,6 +63,16 @@
                                 <GroupBox Header="Angular" 
                                           Visibility="{Binding Command.Template, ConverterParameter='Angular', Converter={StaticResource EqualityConverter}}" Margin="0,0,0,12">
                                     <StackPanel Margin="4,4,4,-8">
+                                        <TextBlock Text="RxJs Version" FontWeight="Bold" Margin="0,0,0,6" />
+                                        <TextBlock Text="Angular 6+ requires RxJs 6" Margin="0,0,0,6" />
+                                        <ComboBox SelectedItem="{Binding Command.RxJsVersion, Mode=TwoWay}" 
+                                                  ToolTip="RxJsVersion"
+                                                  ItemsSource="{Binding RxJsVersions}" Margin="0,0,0,12" />
+
+                                        <CheckBox IsChecked="{Binding Command.UseSingletonProvider, Mode=TwoWay}" 
+                                                  ToolTip="UseSingletonProvider"
+                                                  Content="Use Angular 6 Singleton Provider" Margin="0,4,0,12" />
+
                                         <TextBlock Text="HTTP service class" FontWeight="Bold" Margin="0,0,0,6" />
                                         <TextBlock Text="HttpClient recommended for new projects (Angular 4.3+)" Margin="0,0,0,6" />
                                         <ComboBox SelectedItem="{Binding Command.HttpClass, Mode=TwoWay}" 
@@ -112,6 +122,10 @@
                                 <TextBox Text="{Binding Command.QueryNullValue, Mode=TwoWay}" 
                                          ToolTip="QueryNullValue" Margin="0,0,0,12" />
 
+                                <CheckBox IsChecked="{Binding Command.ExportTypes, Mode=TwoWay}" 
+                                          ToolTip="ExportTypes"
+                                          Content="Export types (classes, interfaces and enums)" Margin="0,0,0,12" />
+
                                 <CheckBox IsChecked="{Binding Command.GenerateClientInterfaces, Mode=TwoWay}" 
                                           ToolTip="GenerateClientInterfaces"
                                           Content="Generate interfaces for Client classes" Margin="0,0,0,12" />
@@ -130,7 +144,7 @@
                                 <StackPanel Visibility="{Binding Command.WrapResponses, Converter={StaticResource VisibilityConverter}}">
                                     <TextBlock Text="Methods where responses are wrapped (empty for all, 'ControllerName.MethodName', comma separated)" FontWeight="Bold" Margin="0,0,0,6" />
                                     <TextBox ToolTip="WrapResponseMethods" 
-                                             Text="{Binding Binding.WrapResponseMethods, Mode=TwoWay, Converter={StaticResource StringArrayConverter}, ConverterParameter=','}" 
+                                             Text="{Binding Command.WrapResponseMethods, Mode=TwoWay, Converter={StaticResource StringArrayConverter}, ConverterParameter=','}" 
                                              Margin="0,0,0,12" />
 
                                     <CheckBox IsChecked="{Binding Command.GenerateResponseClasses, Mode=TwoWay}"
@@ -197,7 +211,7 @@
                                           Margin="0,0,0,12" />
 
                                 <CheckBox IsChecked="{Binding Command.ImportRequiredTypes, Mode=TwoWay}" 
-                                          Content="Import required types (e.g. Angular types, MomentJS, JQuery, etc.)"
+                                          Content="Import required types (e.g. Angular types, Moment.js, JQuery, etc.)"
                                           ToolTip="ImportRequiredTypes"
                                           Margin="0,0,0,12" />
 
@@ -262,18 +276,22 @@
                         </StackPanel>
                     </GroupBox>
 
-                    <TextBlock Text="Output file path (empty: no file output)" FontWeight="Bold" Margin="0,0,0,6" />
-                    <dialogs:FileSavePicker DefaultExtension=".ts" Filter="TypeScript Files (.ts)|*.ts"
-                                            FilePath="{Binding Command.OutputFilePath, Mode=TwoWay}" 
-                                            ToolTip="Output"
-                                            Margin="0,0,0,12" />
-                    
-                    <GroupBox Header="Templating (experimental)" Margin="0,0,0,12">
+                    <GroupBox Header="Templating" Margin="0,0,0,12">
                         <StackPanel Margin="4,8,4,-8">
                             <TextBlock Text="Template directory" FontWeight="Bold" Margin="0,0,0,6" />
                             <TextBox Text="{Binding Command.TemplateDirectory, Mode=TwoWay}"
                                      ToolTip="TemplateDirectory"
                                      Margin="0,0,0,12" />
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="Output" Margin="0,0,0,12">
+                        <StackPanel Margin="4,8,4,-8">
+                            <TextBlock Text="Output file path (empty: no file output)" FontWeight="Bold" Margin="0,0,0,6" />
+                            <dialogs:FileSavePicker DefaultExtension=".ts" Filter="TypeScript Files (.ts)|*.ts"
+                                            FilePath="{Binding Command.OutputFilePath, Mode=TwoWay}" 
+                                            ToolTip="Output"
+                                            Margin="0,0,0,12" />
                         </StackPanel>
                     </GroupBox>
                 </StackPanel>

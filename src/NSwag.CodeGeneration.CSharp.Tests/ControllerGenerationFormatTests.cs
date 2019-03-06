@@ -1,16 +1,26 @@
 ﻿using System;
 using System.Threading.Tasks;
-using System.Web.Http;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.AspNetCore.Mvc;
 using NSwag.CodeGeneration.CSharp.Models;
 using NSwag.SwaggerGeneration.WebApi;
+using Xunit;
 
 namespace NSwag.CodeGeneration.CSharp.Tests
 {
-    [TestClass]
     public class ControllerGenerationFormatTests
     {
-        public class TestController : ApiController
+        public class ComplexType
+        {
+            public string Prop1 { get; set; }
+
+            public int Prop2 { get; set; }
+
+            public bool Prop3 { get; set; }
+
+            public ComplexType Prop4 { get; set; }
+        }
+
+        public class TestController : Controller
         {
             [Route("Foo")]
             public string Foo(string test, bool test2)
@@ -23,9 +33,15 @@ namespace NSwag.CodeGeneration.CSharp.Tests
             {
                 throw new NotImplementedException();
             }
+
+            [Route("Complex")]
+            public void Complex([FromBody] ComplexType complexType)
+            {
+                throw new NotImplementedException();
+            }
         }
 
-        [TestMethod]
+        [Fact]
         public async Task When_controllergenerationformat_abstract_then_abstractcontroller_is_generated()
         {
             //// Arrange
@@ -40,13 +56,13 @@ namespace NSwag.CodeGeneration.CSharp.Tests
             var code = codeGen.GenerateFile();
 
             //// Assert
-            Assert.IsTrue(code.Contains("abstract class TestController"));
-            Assert.IsFalse(code.Contains("ITestController"));
-            Assert.IsFalse(code.Contains("private ITestController _implementation;"));
-            Assert.IsFalse(code.Contains("partial"));
+            Assert.Contains("abstract class TestController", code);
+            Assert.DoesNotContain("ITestController", code);
+            Assert.DoesNotContain("private ITestController _implementation;", code);
+            Assert.DoesNotContain("partial class TestController", code);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task When_controllergenerationformat_abstract_then_partialcontroller_is_generated()
         {
             //// Arrange
@@ -61,13 +77,13 @@ namespace NSwag.CodeGeneration.CSharp.Tests
             var code = codeGen.GenerateFile();
 
             //// Assert
-            Assert.IsTrue(code.Contains("partial class TestController"));
-            Assert.IsTrue(code.Contains("ITestController"));
-            Assert.IsTrue(code.Contains("private ITestController _implementation;"));
-            Assert.IsFalse(code.Contains("abstract class TestController"));
+            Assert.Contains("partial class TestController", code);
+            Assert.Contains("ITestController", code);
+            Assert.Contains("private ITestController _implementation;", code);
+            Assert.DoesNotContain("abstract class TestController", code);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task When_controllergenerationformat_notsetted_then_partialcontroller_is_generated()
         {
             //// Arrange
@@ -81,10 +97,95 @@ namespace NSwag.CodeGeneration.CSharp.Tests
             var code = codeGen.GenerateFile();
 
             //// Assert
-            Assert.IsTrue(code.Contains("partial class TestController"));
-            Assert.IsTrue(code.Contains("ITestController"));
-            Assert.IsTrue(code.Contains("private ITestController _implementation;"));
-            Assert.IsFalse(code.Contains("abstract class TestController"));
+            Assert.Contains("partial class TestController", code);
+            Assert.Contains("ITestController", code);
+            Assert.Contains("private ITestController _implementation;", code);
+            Assert.DoesNotContain("abstract class TestController", code);
+        }
+
+        [Fact]
+        public async Task When_controller_has_operation_with_complextype_then_partialcontroller_is_generated_with_frombody_attribute()
+        {
+            //// Arrange
+            var swaggerGen = new WebApiToSwaggerGenerator(new WebApiToSwaggerGeneratorSettings());
+            var document = await swaggerGen.GenerateForControllerAsync<TestController>();
+            var settings = new SwaggerToCSharpControllerGeneratorSettings
+            {
+                AspNetNamespace = "MyCustomNameSpace"
+            };
+
+            //// Act
+            var codeGen = new SwaggerToCSharpControllerGenerator(document, settings);
+            var code = codeGen.GenerateFile();
+
+            //// Assert
+            Assert.Contains("partial class TestController", code);
+            Assert.Contains($"Complex([{settings.AspNetNamespace}.FromBody] ComplexType complexType)", code);
+            Assert.Contains("Foo(string test, bool test2)", code);
+            Assert.Contains("Bar()", code);
+        }
+
+        [Fact]
+        public async Task When_controller_has_operation_with_complextype_then_abstractcontroller_is_generated_with_frombody_attribute()
+        {
+            //// Arrange
+            var swaggerGen = new WebApiToSwaggerGenerator(new WebApiToSwaggerGeneratorSettings());
+            var document = await swaggerGen.GenerateForControllerAsync<TestController>();
+            var settings = new SwaggerToCSharpControllerGeneratorSettings
+            {
+                ControllerStyle = CSharpControllerStyle.Abstract,
+                AspNetNamespace = "MyCustomNameSpace"
+            };
+
+            //// Act
+            var codeGen = new SwaggerToCSharpControllerGenerator(document, settings);
+            var code = codeGen.GenerateFile();
+
+            //// Assert
+            Assert.Contains("abstract class TestController", code);
+            Assert.Contains($"Complex([{settings.AspNetNamespace}.FromBody] ComplexType complexType)", code);
+            Assert.Contains("Foo(string test, bool test2)", code);
+            Assert.Contains("Bar()", code);
+        }
+
+        [Fact]
+        public async Task When_controllerroutenamingstrategy_operationid_then_route_attribute_name_specified()
+        {
+            //// Arrange
+            var swaggerGen = new WebApiToSwaggerGenerator(new WebApiToSwaggerGeneratorSettings());
+            var document = await swaggerGen.GenerateForControllerAsync<TestController>();
+            var settings = new SwaggerToCSharpControllerGeneratorSettings
+            {
+                RouteNamingStrategy = CSharpControllerRouteNamingStrategy.OperationId
+            };
+
+            //// Act
+            var codeGen = new SwaggerToCSharpControllerGenerator(document, settings);
+            var code = codeGen.GenerateFile();
+
+            //// Assert
+            Assert.Contains("Route(\"Foo\", Name = \"Test_Foo\")", code);
+            Assert.Contains("Route(\"Bar\", Name = \"Test_Bar\")", code);
+        }
+
+        [Fact]
+        public async Task When_controllerroutenamingstrategy_none_then_route_attribute_name_not_specified()
+        {
+            //// Arrange
+            var swaggerGen = new WebApiToSwaggerGenerator(new WebApiToSwaggerGeneratorSettings());
+            var document = await swaggerGen.GenerateForControllerAsync<TestController>();
+            var settings = new SwaggerToCSharpControllerGeneratorSettings
+            {
+                RouteNamingStrategy = CSharpControllerRouteNamingStrategy.None
+            };
+
+            //// Act
+            var codeGen = new SwaggerToCSharpControllerGenerator(document, settings);
+            var code = codeGen.GenerateFile();
+
+            //// Assert
+            Assert.Contains("Route(\"Foo\")", code);
+            Assert.Contains("Route(\"Bar\")", code);
         }
     }
 }

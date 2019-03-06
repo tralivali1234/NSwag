@@ -18,7 +18,7 @@ using NSwag.CodeGeneration.CSharp;
 namespace NSwag.Commands.CodeGeneration
 {
     [Command(Name = "swagger2csclient", Description = "Generates CSharp client code from a Swagger specification.")]
-    public class SwaggerToCSharpClientCommand : SwaggerToCSharpCommand<SwaggerToCSharpClientGeneratorSettings>
+    public class SwaggerToCSharpClientCommand : SwaggerToCSharpCommandBase<SwaggerToCSharpClientGeneratorSettings>
     {
         public SwaggerToCSharpClientCommand() : base(new SwaggerToCSharpClientGeneratorSettings())
         {
@@ -59,7 +59,7 @@ namespace NSwag.Commands.CodeGeneration
             set { Settings.GenerateDtoTypes = value; }
         }
 
-        [Argument(Name = "InjectHttpClient", IsRequired = false, Description = "Specifies whether an HttpClient instance is injected.")]
+        [Argument(Name = "InjectHttpClient", IsRequired = false, Description = "Specifies whether an HttpClient instance is injected (default: true).")]
         public bool InjectHttpClient
         {
             get { return Settings.InjectHttpClient; }
@@ -145,6 +145,14 @@ namespace NSwag.Commands.CodeGeneration
         {
             get { return Settings.GenerateSyncMethods; }
             set { Settings.GenerateSyncMethods = value; }
+        }
+
+        [Argument(Name = nameof(ExposeJsonSerializerSettings), IsRequired = false,
+            Description = "Specifies whether to expose the JsonSerializerSettings property (default: false).")]
+        public bool ExposeJsonSerializerSettings
+        {
+            get { return Settings.ExposeJsonSerializerSettings; }
+            set { Settings.ExposeJsonSerializerSettings = value; }
         }
 
         [Argument(Name = "ClientClassAccessModifier", IsRequired = false, Description = "The client class access modifier (default: public).")]

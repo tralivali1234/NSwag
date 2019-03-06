@@ -60,6 +60,13 @@ namespace NSwag.Commands.CodeGeneration
             set { Settings.ArrayType = value; }
         }
 
+        [Argument(Name = "ArrayInstanceType", IsRequired = false, Description = "The generic array .NET instance type (default: empty = ArrayType).")]
+        public string ArrayInstanceType
+        {
+            get { return Settings.ArrayInstanceType; }
+            set { Settings.ArrayInstanceType = value; }
+        }
+
         [Argument(Name = "DictionaryType", IsRequired = false, Description = "The generic dictionary .NET type (default: 'Dictionary').")]
         public string DictionaryType
         {
@@ -67,10 +74,16 @@ namespace NSwag.Commands.CodeGeneration
             set { Settings.DictionaryType = value; }
         }
 
+        [Argument(Name = "DictionaryInstanceType", IsRequired = false, Description = "The generic dictionary .NET instance type (default: empty = DictionaryType).")]
+        public string DictionaryInstanceType
+        {
+            get { return Settings.DictionaryInstanceType; }
+            set { Settings.DictionaryInstanceType = value; }
+        }
+
         public override async Task<object> RunAsync(CommandLineProcessor processor, IConsoleHost host)
         {
-            var inputJson = await GetInputJsonAsync().ConfigureAwait(false);
-            var schema = await JsonSchema4.FromJsonAsync(inputJson).ConfigureAwait(false);
+            var schema = await GetJsonSchemaAsync().ConfigureAwait(false);
             var generator = new CSharpGenerator(schema, Settings);
 
             var code = generator.GenerateFile(Name);

@@ -7,9 +7,7 @@
 //-----------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
 using NJsonSchema;
 using NJsonSchema.CodeGeneration.TypeScript;
 
@@ -48,28 +46,14 @@ namespace NSwag.CodeGeneration.TypeScript.Models
 
             Types = GenerateDtoTypes();
             ExtensionCodeBottom = GenerateExtensionCodeAfter();
+            Framework = new TypeScriptFrameworkModel(settings);
         }
+
+        /// <summary>Gets framework specific information.</summary>
+        public TypeScriptFrameworkModel Framework { get; set; }
 
         /// <summary>Gets a value indicating whether to generate client classes.</summary>
         public bool GenerateClientClasses => _settings.GenerateClientClasses;
-
-        /// <summary>Gets a value indicating whether the generated code is for Angular 2.</summary>
-        public bool IsAngular => _settings.Template == TypeScriptTemplate.Angular;
-
-        /// <summary>Gets a value indicating whether to use HttpClient with the Angular template.</summary>
-        public bool UseAngularHttpClient => _settings.HttpClass == HttpClass.HttpClient;
-
-        /// <summary>Gets a value indicating whether the generated code is for Aurelia.</summary>
-        public bool IsAurelia => _settings.Template == TypeScriptTemplate.Aurelia;
-
-        /// <summary>Gets a value indicating whether the generated code is for Angular.</summary>
-        public bool IsAngularJS => _settings.Template == TypeScriptTemplate.AngularJS;
-
-        /// <summary>Gets a value indicating whether the generated code is for Knockout.</summary>
-        public bool IsKnockout => _settings.TypeScriptGeneratorSettings.TypeStyle == TypeScriptTypeStyle.KnockoutClass;
-
-        /// <summary>Gets a value indicating whether to render for JQuery.</summary>
-        public bool IsJQuery => _settings.Template == TypeScriptTemplate.JQueryCallbacks || _settings.Template == TypeScriptTemplate.JQueryPromises;
 
         /// <summary>Gets or sets a value indicating whether DTO exceptions are wrapped in a SwaggerException instance.</summary>
         public bool WrapDtoExceptions => _settings.WrapDtoExceptions;
@@ -99,9 +83,6 @@ namespace NSwag.CodeGeneration.TypeScript.Models
             }
         }
 
-        /// <summary>Gets a value indicating whether MomentJS is required.</summary>
-        public bool RequiresMomentJS => _settings.TypeScriptGeneratorSettings.DateTimeType == TypeScriptDateTimeType.MomentJS;
-
         /// <summary>Gets a value indicating whether required types should be imported.</summary>
         public bool ImportRequiredTypes => _settings.ImportRequiredTypes;
 
@@ -110,7 +91,7 @@ namespace NSwag.CodeGeneration.TypeScript.Models
 
         /// <summary>Gets the clients code.</summary>
         public string Clients => _settings.GenerateClientClasses ? _clientCode : string.Empty;
-        
+
         /// <summary>Gets the types code.</summary>
         public string Types { get; }
 
@@ -137,6 +118,9 @@ namespace NSwag.CodeGeneration.TypeScript.Models
         /// <summary>Gets the namespace.</summary>
         public string Namespace => _settings.TypeScriptGeneratorSettings.Namespace;
 
+        /// <summary>Gets whether the export keyword should be added to all classes and enums.</summary>
+        public bool ExportTypes => _settings.TypeScriptGeneratorSettings.ExportTypes;
+
         /// <summary>Gets a value indicating whether the FileParameter interface should be rendered.</summary>
         public bool RequiresFileParameterInterface =>
             !_settings.TypeScriptGeneratorSettings.ExcludedTypeNames.Contains("FileParameter") &&
@@ -144,15 +128,19 @@ namespace NSwag.CodeGeneration.TypeScript.Models
 
         /// <summary>Gets a value indicating whether the FileResponse interface should be rendered.</summary>
         public bool RequiresFileResponseInterface =>
-            !IsJQuery &&
+            !Framework.IsJQuery &&
             !_settings.TypeScriptGeneratorSettings.ExcludedTypeNames.Contains("FileResponse") &&
             _document.Operations.Any(o => o.Operation.ActualResponses.Any(r => r.Value.Schema?.ActualSchema.Type == JsonObjectType.File));
 
-        /// <summary>Gets a value indicating whether the SwaggerException class is required.</summary>
-        public bool RequiresSwaggerExceptionClass =>
-            !_settings.TypeScriptGeneratorSettings.ExcludedTypeNames.Contains("SwaggerException") &&
+        /// <summary>Gets a value indicating whether the client functions are required.</summary>
+        public bool RequiresClientFunctions =>
             _settings.GenerateClientClasses &&
             !string.IsNullOrEmpty(Clients);
+
+        /// <summary>Gets a value indicating whether the SwaggerException class is required. Note that if RequiresClientFunctions returns true this returns true since the client functions require it. </summary>
+        public bool RequiresSwaggerExceptionClass =>
+            RequiresClientFunctions &&
+            !_settings.TypeScriptGeneratorSettings.ExcludedTypeNames.Contains("SwaggerException");
 
         /// <summary>Table containing list of the generated classes.</summary>
         public string[] ClientClasses { get; }
@@ -160,13 +148,8 @@ namespace NSwag.CodeGeneration.TypeScript.Models
         /// <summary>Gets a value indicating whether to handle references.</summary>
         public bool HandleReferences => _settings.TypeScriptGeneratorSettings.HandleReferences;
 
-        // Angular only
-
-        /// <summary>Gets or sets the injection token type (used in the Angular template).</summary>
-        public string InjectionTokenType => _settings.InjectionTokenType.ToString();
-
-        /// <summary>Gets or sets the token name for injecting the API base URL string (used in the Angular template).</summary>
-        public string BaseUrlTokenName => _settings.BaseUrlTokenName;
+        /// <summary>Gets a value indicating whether MomentJS duration format is needed (moment-duration-format package).</summary>
+        public bool RequiresMomentJSDuration => Types?.Contains("moment.duration(") == true;
 
         private string GenerateDtoTypes()
         {

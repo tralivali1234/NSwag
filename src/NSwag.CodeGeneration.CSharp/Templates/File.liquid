@@ -10,7 +10,7 @@ using {{ usage }};
 
 namespace {{ Namespace }}
 {
-    #pragma warning disable // Disable all warnings
+    #pragma warning disable
 
     {{ Clients | tab }}
 
@@ -19,32 +19,40 @@ namespace {{ Namespace }}
 
 {%     if RequiresFileParameterType -%}
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "{{ ToolchainVersion }}")]
-    public class FileParameter
+    public partial class FileParameter
     {
-        public FileParameter(System.IO.Stream data) 
+        public FileParameter(System.IO.Stream data)
             : this (data, null)
         {
         }
 
         public FileParameter(System.IO.Stream data, string fileName)
+            : this (data, fileName, null)
+        {
+        }
+
+        public FileParameter(System.IO.Stream data, string fileName, string contentType)
         {
             Data = data;
             FileName = fileName;
+            ContentType = contentType;
         }
 
         public System.IO.Stream Data { get; private set; }
 
         public string FileName { get; private set; }
+
+        public string ContentType { get; private set; }
     }
 
 {%     endif -%}
 {%     if GenerateFileResponseClass -%}
-    public class FileResponse : System.IDisposable
+    public partial class FileResponse : System.IDisposable
     {
         private System.IDisposable _client; 
         private System.IDisposable _response; 
 
-        public string StatusCode { get; private set; }
+        public int StatusCode { get; private set; }
 
         public System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> Headers { get; private set; }
 
@@ -52,10 +60,10 @@ namespace {{ Namespace }}
 
         public bool IsPartial
         {
-            get { return StatusCode == "206"; }
+            get { return StatusCode == 206; }
         }
 
-        public FileResponse(string statusCode, System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> headers, System.IO.Stream stream, System.IDisposable client, System.IDisposable response)
+        public FileResponse(int statusCode, System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> headers, System.IO.Stream stream, System.IDisposable client, System.IDisposable response)
         {
             StatusCode = statusCode; 
             Headers = headers; 
@@ -79,13 +87,13 @@ namespace {{ Namespace }}
 {%     if WrapResponses and GenerateResponseClasses -%}
 {%         for responseClassName in ResponseClassNames -%}
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "{{ ToolchainVersion }}")]
-    public class {{ responseClassName }}
+    public partial class {{ responseClassName }}
     {
-        public string StatusCode { get; private set; }
+        public int StatusCode { get; private set; }
 
         public System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> Headers { get; private set; }
         
-        public {{ responseClassName }}(string statusCode, System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> headers) 
+        public {{ responseClassName }}(int statusCode, System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> headers) 
         {
             StatusCode = statusCode; 
             Headers = headers;
@@ -93,11 +101,11 @@ namespace {{ Namespace }}
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "{{ ToolchainVersion }}")]
-    public class {{ responseClassName }}<TResult> : {{ responseClassName }}
+    public partial class {{ responseClassName }}<TResult> : {{ responseClassName }}
     {
         public TResult Result { get; private set; }
         
-        public {{ responseClassName }}(string statusCode, System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> headers, TResult result) 
+        public {{ responseClassName }}(int statusCode, System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> headers, TResult result) 
             : base(statusCode, headers)
         {
             Result = result;
@@ -109,16 +117,16 @@ namespace {{ Namespace }}
 {%     if GenerateExceptionClasses -%}
 {%         for exceptionClassName in ExceptionClassNames -%}
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "{{ ToolchainVersion }}")]
-    public class {{ exceptionClassName }} : System.Exception
+    public partial class {{ exceptionClassName }} : System.Exception
     {
-        public string StatusCode { get; private set; }
+        public int StatusCode { get; private set; }
 
         public string Response { get; private set; }
 
         public System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> Headers { get; private set; }
 
-        public {{ exceptionClassName }}(string message, string statusCode, string response, System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> headers, System.Exception innerException) 
-            : base(message, innerException)
+        public {{ exceptionClassName }}(string message, int statusCode, string response, System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> headers, System.Exception innerException) 
+            : base(message + "\n\nStatus: " + statusCode + "\nResponse: \n" + response.Substring(0, response.Length >= 512 ? 512 : response.Length), innerException)
         {
             StatusCode = statusCode;
             Response = response; 
@@ -132,11 +140,11 @@ namespace {{ Namespace }}
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NSwag", "{{ ToolchainVersion }}")]
-    public class {{ exceptionClassName }}<TResult> : {{ exceptionClassName }}
+    public partial class {{ exceptionClassName }}<TResult> : {{ exceptionClassName }}
     {
         public TResult Result { get; private set; }
 
-        public {{ exceptionClassName }}(string message, string statusCode, string response, System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> headers, TResult result, System.Exception innerException) 
+        public {{ exceptionClassName }}(string message, int statusCode, string response, System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>> headers, TResult result, System.Exception innerException) 
             : base(message, statusCode, response, headers, innerException)
         {
             Result = result;
@@ -151,4 +159,6 @@ namespace {{ Namespace }}
     {% template JsonExceptionConverter %}
 {%     endif -%}
 {% endif -%}
+
+    #pragma warning restore
 }
